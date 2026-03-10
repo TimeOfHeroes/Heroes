@@ -22,13 +22,17 @@
   --header-text: #111;
   --accent-color: #2563eb;
 
-  /* Пастельные цвета для карточек (усилена разница между красным и фиолетовым) */
-  --element-blue: #d4e7f5;      /* холодный голубой */
-  --element-green: #d4eed4;      /* мягкий зеленый */
-  --element-red: #ffdeda;        /* теплый розовато-красный */
-  --element-purple: #ecd1f0;     /* лавандовый, более фиолетовый */
-  --element-yellow: #fcf0cf;     /* кремово-желтый */
-  --element-unknown: #ececec;
+  /* Гармоничные пастельные цвета для карточек — мягкие, чистые */
+  --element-blue: #e1f0fa;      /* небесно-голубой */
+  --element-green: #e0f0e0;      /* свежая мята */
+  --element-red: #ffe5e2;        /* нежный персиково-розовый */
+  --element-purple: #f2e3f5;     /* сиреневый туман */
+  --element-yellow: #fff6dd;     /* ванильный свет */
+  --element-unknown: #f5f5f5;
+  
+  /* Текст на пастельном фоне — мягкий, без грязи */
+  --card-text: #2d3a3a;
+  --card-meta: #4a5a5a;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -45,13 +49,16 @@
     --header-text: #eee;
     --accent-color: #3b82f6;
 
-    /* Темная тема — более глубокие, но различимые пастельные тона */
-    --element-blue: #1e3f55;      /* насыщенный синий */
-    --element-green: #1f4529;      /* глубокий зеленый */
-    --element-red: #632e2e;        /* красный с кирпичным оттенком */
-    --element-purple: #562e5a;     /* насыщенный фиолетовый */
-    --element-yellow: #5f502b;      /* оливково-золотистый */
-    --element-unknown: #3a3a3a;
+    /* Темная тема — глубокие, но чистые цвета */
+    --element-blue: #234b63;      /* глубокий аквамарин */
+    --element-green: #23502e;      /* изумрудный лес */
+    --element-red: #6d3737;        /* тёмная вишня */
+    --element-purple: #5a3763;     /* баклажан */
+    --element-yellow: #66572e;     /* тёмная охра */
+    --element-unknown: #3f3f3f;
+    
+    --card-text: #f0f0f0;
+    --card-meta: #c0c0c0;
   }
 }
 
@@ -703,6 +710,7 @@ header {
   box-shadow: 0 2px 8px rgba(0,0,0,.08);
   /* По умолчанию цвет, если стихия не определена */
   background-color: var(--element-unknown);
+  color: var(--card-text);
 }
 .card[data-element="Синий"] { background-color: var(--element-blue); }
 .card[data-element="Зеленый"] { background-color: var(--element-green); }
@@ -718,7 +726,7 @@ header {
 .thumb { 
   width:100%; 
   height: 190px;
-  background: rgba(0,0,0,0.05); 
+  background: rgba(0,0,0,0.03); 
   display:flex; 
   align-items:center; 
   justify-content:center; 
@@ -745,13 +753,12 @@ header {
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: center;
-  color: var(--text-color);
+  color: var(--card-text);
 }
 
 .meta { 
   margin:0 12px 6px; 
-  color: var(--text-color);
-  opacity: 0.8;
+  color: var(--card-meta);
   display:flex; 
   gap:6px; 
   flex-wrap:wrap; 
@@ -759,6 +766,7 @@ header {
   line-height: 1.4;
   justify-content: center;
   text-align: center;
+  font-weight: 450;
 }
 .stats { 
   margin:0 12px 12px; 
@@ -768,14 +776,23 @@ header {
   justify-content: center;
 }
 .pill { 
-  background: rgba(0,0,0,0.1); 
-  border:1px solid var(--border-color); 
+  background: rgba(255,255,255,0.4);
+  backdrop-filter: blur(2px);
+  border:1px solid rgba(0,0,0,0.08); 
   border-radius:999px; 
   padding:4px 8px; 
   font-size:12px;
   white-space: nowrap;
   font-weight: 500;
-  color: var(--text-color);
+  color: var(--card-text);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+
+@media (prefers-color-scheme: dark) {
+  .pill {
+    background: rgba(0,0,0,0.3);
+    border-color: rgba(255,255,255,0.1);
+  }
 }
 
 /* Кнопка для раскрытия способностей в карточке */
@@ -796,11 +813,10 @@ header {
 .card-abilities-full {
   display: none;
   font-size: 11px;
-  color: var(--text-color);
-  opacity: 0.8;
+  color: var(--card-meta);
   padding: 0 12px 8px;
   line-height: 1.4;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid rgba(0,0,0,0.08);
   margin-top: 4px;
   padding-top: 8px;
 }
