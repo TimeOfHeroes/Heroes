@@ -1599,23 +1599,49 @@ header {
 </div>
 
 <script>
-// Имена колонок
-const F = {
-id: 'id',
-name: 'Герой',
-element: 'Стихия',
-stars: 'Количество звезд',
-mana: 'Скорость маны',
-power: 'Сила',
-attack: 'Атака',
-defense: 'Защита',
-hp: 'Жизни',
-attackType: 'Способ атаки',
-abilities: 'Способности',
-passive: 'Пассивные способности',
-summon: 'Место призыва',
-clazz: 'Класс',
-image: 'Картинка'
+// Имена колонок для heroes.csv
+const HERO_FIELDS = {
+  id: 'id',
+  name: 'Герой',
+  element: 'Стихия',
+  stars: 'Количество звезд',
+  mana: 'Скорость маны',
+  power: 'Сила',
+  attack: 'Атака',
+  defense: 'Защита',
+  hp: 'Жизни',
+  attackType: 'Способ атаки',
+  abilities: 'Способности',
+  passive: 'Пассивные способности',
+  summon: 'Место призыва',
+  clazz: 'Класс',
+  image: 'Картинка'
+};
+
+// Имена колонок для Talent_discription.csv
+const TALENT_DESC_FIELDS = {
+  id: 'id',
+  id2: 'id 2',
+  talent_id: 'talent_id',
+  effect_type: 'effect_type',
+  value: 'value',
+  is_percent: 'is_percent',
+  image_active: 'Картинка активная',
+  image_inactive: 'Картинка неактивная'
+};
+
+// Имена колонок для Classes.csv
+const CLASS_TALENT_FIELDS = {
+  id: 'id',
+  id2: 'id 2',
+  class_id: 'class_id',
+  row_number: 'row_number',
+  is_mandatory: 'is_mandatory',
+  branch_group: 'branch_group',
+  left_talent_id: 'left_talent_id',
+  center_talent_id: 'center_talent_id',
+  right_talent_id: 'right_talent_id',
+  next_group: 'next_group'
 };
 
 // URL для загрузки данных
@@ -1681,8 +1707,8 @@ const els = {
 };
 
 // Глобальные данные
-let allRows = [];
-let viewRows = [];
+let allHeroes = [];
+let viewHeroes = [];
 let currentIdx = -1;
 let allHeroNames = [];
 let filteredHeroNames = [];
@@ -1711,24 +1737,33 @@ const selected = {
 };
 
 // Вспомогательные функции
-function toNum(v){ 
+function toNum(v) { 
   if (v === undefined || v === null) return null;
-  const n = Number(String(v).replace(',', '.').replace(/[^\d.-]/g, '')); 
-  return Number.isFinite(n) ? n : null; 
+  const str = String(v).replace(',', '.').replace(/[^\d.-]/g, '');
+  const n = parseFloat(str);
+  return !isNaN(n) && isFinite(n) ? n : null; 
 }
 
-function uniq(values){ 
-  return [...new Set(values.filter(v => v!==undefined && v!==null && String(v).trim()!==''))]; 
+function uniq(values) { 
+  return [...new Set(values.filter(v => v !== undefined && v !== null && String(v).trim() !== ''))]; 
 }
 
-function sortAlpha(a,b){ 
-  return String(a).localeCompare(String(b), 'ru', {numeric:true}); 
+function sortAlpha(a, b) { 
+  return String(a).localeCompare(String(b), 'ru', { numeric: true }); 
+}
+
+function sortNumericAsc(a, b) { 
+  const na = toNum(a), nb = toNum(b); 
+  if (na === null && nb === null) return 0;
+  if (na === null) return 1;
+  if (nb === null) return -1;
+  return na - nb; 
 }
 
 function sortMana(a, b) {
   const order = ['Очень медленно', 'Медленно', 'Средне', 'Быстро', 'Очень быстро', 'Легендарно быстро'];
-  const indexA = order.indexOf(a);
-  const indexB = order.indexOf(b);
+  const indexA = order.indexOf(String(a));
+  const indexB = order.indexOf(String(b));
   
   if (indexA === -1 && indexB === -1) return String(a).localeCompare(String(b), 'ru');
   if (indexA === -1) return 1;
@@ -1737,59 +1772,65 @@ function sortMana(a, b) {
   return indexA - indexB;
 }
 
-function fileCellToUrl(v){
+function fileCellToUrl(v) {
   if (!v) return '';
   const s = String(v).trim();
+  
+  // Ищем URL в скобках
   const mParen = s.match(/\((https?:\/\/[^)]+)\)/i);
   if (mParen) return mParen[1];
+  
+  // Ищем прямой URL
   const mAny = s.match(/https?:\/\/\S+/i);
-  if (mAny) return mAny[0].replace(/[),]+$/,'');
-  try {
-    const arr = JSON.parse(s);
-    if (Array.isArray(arr) && arr.length && arr[0].url) return arr[0].url;
-  } catch(e){}
+  if (mAny) return mAny[0].replace(/[),]+$/, '');
+  
   return '';
 }
 
 function getTalentImage(talentId, active = true) {
   const talent = talentDescriptions[talentId];
   if (!talent) return '';
-  const field = active ? 'Картинка активная' : 'Картинка неактивная';
-  return fileCellToUrl(talent[field]);
+  
+  // Определяем название поля в зависимости от активности
+  const fieldName = active ? TALENT_DESC_FIELDS.image_active : TALENT_DESC_FIELDS.image_inactive;
+  return fileCellToUrl(talent[fieldName]);
 }
 
 function getTalentName(talentId) {
   const talent = talentDescriptions[talentId];
   if (!talent) return `Талант ${talentId}`;
-  // Берем название из effect_type или id
-  return talent.effect_type || `Талант ${talentId}`;
+  
+  // Используем effect_type как название
+  return talent[TALENT_DESC_FIELDS.effect_type] || `Талант ${talentId}`;
 }
 
 function getTalentEffects(talentId) {
   const talent = talentDescriptions[talentId];
   if (!talent) return [];
   
-  // Определяем тип эффекта по названию
-  let type = 'stat_increase';
-  let target = 'unknown';
+  const value = toNum(talent[TALENT_DESC_FIELDS.value]) || 0;
+  const isPercent = String(talent[TALENT_DESC_FIELDS.is_percent]).toLowerCase() === 'true' || 
+                    talent[TALENT_DESC_FIELDS.is_percent] === true;
+  const effectType = talent[TALENT_DESC_FIELDS.effect_type] || 'unknown';
   
-  if (talent.effect_type) {
-    const name = talent.effect_type.toLowerCase();
-    if (name.includes('атак')) target = 'Атака';
-    else if (name.includes('защит')) target = 'Защита';
-    else if (name.includes('жизн') || name.includes('здоров')) target = 'Жизни';
-    else if (name.includes('сил')) target = 'Сила';
-    else if (name.includes('крит')) target = 'Крит';
-    else if (name.includes('лечен') || name.includes('исцел')) target = 'Исцеление';
-    else if (name.includes('маны') || name.includes('скорость')) target = 'Скорость маны';
-    else target = talent.effect_type;
-  }
+  // Определяем цель эффекта по названию
+  let target = effectType;
+  const nameLower = effectType.toLowerCase();
+  
+  if (nameLower.includes('атак')) target = 'Атака';
+  else if (nameLower.includes('защит')) target = 'Защита';
+  else if (nameLower.includes('жизн') || nameLower.includes('здоров')) target = 'Жизни';
+  else if (nameLower.includes('сил')) target = 'Сила';
+  else if (nameLower.includes('крит')) target = 'Крит';
+  else if (nameLower.includes('лечен') || nameLower.includes('исцел')) target = 'Исцеление';
+  else if (nameLower.includes('маны') || nameLower.includes('скорость')) target = 'Скорость маны';
   
   return [{
-    type: type,
+    type: 'stat_increase',
     target: target,
-    value: toNum(talent.value) || 0,
-    isPercent: talent.is_percent === 'true' || talent.is_percent === true || String(talent.is_percent).toLowerCase() === 'true'
+    value: value,
+    isPercent: isPercent,
+    originalName: effectType
   }];
 }
 
@@ -1840,7 +1881,7 @@ function updateHeroCheckboxes() {
   updateHeroSelectDisplay();
 }
 
-function buildFacet(container, values, facetKey){
+function buildFacet(container, values, facetKey) {
   let opts = uniq(values);
   
   if (facetKey === 'mana') {
@@ -1853,50 +1894,50 @@ function buildFacet(container, values, facetKey){
   
   container.innerHTML = opts.map(val => {
     const checked = selected[facetKey].has(String(val)) ? 'checked' : '';
-    return `<label class="opt"><input type="checkbox" data-facet="${facetKey}" value="${String(val).replace(/"/g,'&quot;')}" ${checked}><span>${String(val)}</span></label>`;
+    return `<label class="opt"><input type="checkbox" data-facet="${facetKey}" value="${String(val).replace(/"/g, '&quot;')}" ${checked}><span>${String(val)}</span></label>`;
   }).join('');
   
-  container.querySelectorAll('input[type="checkbox"]').forEach(cb=>{
-    cb.addEventListener('change', ()=>{
+  container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', () => {
       const set = selected[cb.dataset.facet];
       if (cb.checked) set.add(cb.value); else set.delete(cb.value);
     });
   });
 }
 
-function initAllFacets(rows){
-  buildFacet(els.facet.element, rows.map(r=>r[F.element]), 'element');
-  buildFacet(els.facet.stars,   rows.map(r=>r[F.stars]),   'stars');
-  buildFacet(els.facet.mana,    rows.map(r=>r[F.mana]),    'mana');
-  buildFacet(els.facet.attackType, rows.map(r=>r[F.attackType]), 'attackType');
-  buildFacet(els.facet.summon,  rows.map(r=>r[F.summon]),  'summon');
-  buildFacet(els.facet.clazz,   rows.map(r=>r[F.clazz]),   'clazz');
+function initAllFacets(heroes) {
+  buildFacet(els.facet.element, heroes.map(r => r[HERO_FIELDS.element]), 'element');
+  buildFacet(els.facet.stars, heroes.map(r => r[HERO_FIELDS.stars]), 'stars');
+  buildFacet(els.facet.mana, heroes.map(r => r[HERO_FIELDS.mana]), 'mana');
+  buildFacet(els.facet.attackType, heroes.map(r => r[HERO_FIELDS.attackType]), 'attackType');
+  buildFacet(els.facet.summon, heroes.map(r => r[HERO_FIELDS.summon]), 'summon');
+  buildFacet(els.facet.clazz, heroes.map(r => r[HERO_FIELDS.clazz]), 'clazz');
   
-  allHeroNames = uniq(rows.map(r => r[F.name])).sort(sortAlpha);
+  allHeroNames = uniq(heroes.map(r => r[HERO_FIELDS.name])).sort(sortAlpha);
   filteredHeroNames = [...allHeroNames];
   updateHeroCheckboxes();
 }
 
-function selectAll(facetKey){
-  const values = uniq(allRows.map(r=>{
-    switch(facetKey){
-      case 'element': return r[F.element];
-      case 'stars': return r[F.stars];
-      case 'mana': return r[F.mana];
-      case 'attackType': return r[F.attackType];
-      case 'summon': return r[F.summon];
-      case 'clazz': return r[F.clazz];
+function selectAll(facetKey) {
+  const values = uniq(allHeroes.map(r => {
+    switch (facetKey) {
+      case 'element': return r[HERO_FIELDS.element];
+      case 'stars': return r[HERO_FIELDS.stars];
+      case 'mana': return r[HERO_FIELDS.mana];
+      case 'attackType': return r[HERO_FIELDS.attackType];
+      case 'summon': return r[HERO_FIELDS.summon];
+      case 'clazz': return r[HERO_FIELDS.clazz];
       default: return null;
     }
   })).filter(v => v !== null);
   
   selected[facetKey] = new Set(values.map(String));
-  initAllFacets(allRows);
+  initAllFacets(allHeroes);
 }
 
-function selectNone(facetKey){
+function selectNone(facetKey) {
   selected[facetKey].clear();
-  initAllFacets(allRows);
+  initAllFacets(allHeroes);
 }
 
 // Функция расчета итоговых характеристик
@@ -1937,21 +1978,21 @@ function calculateFinalStats(baseStats, talentSelections) {
 }
 
 function applyEffect(effect, stats, changes) {
-  let statName = effect.target || 'unknown';
+  const statName = effect.target;
   
-  // Проверяем, есть ли такой стат в базовых
-  if (!(statName in stats) && statName !== 'unknown') {
+  // Если такого стата еще нет, добавляем
+  if (!(statName in stats)) {
     stats[statName] = 0;
   }
   
   if (!changes[statName]) {
-    changes[statName] = { base: stats[statName] || 0, percent: 0, absolute: 0 };
+    changes[statName] = { base: stats[statName], percent: 0, absolute: 0 };
   }
   
   if (effect.isPercent) {
-    changes[statName].percent += Number(effect.value);
+    changes[statName].percent += effect.value;
   } else {
-    changes[statName].absolute += Number(effect.value);
+    changes[statName].absolute += effect.value;
   }
   
   // Пересчитываем итоговое значение
@@ -2120,37 +2161,15 @@ function resetCurrentGroup() {
 
 // Функция обновления рассчитанных характеристик
 function updateCalculatedStats() {
-  if (currentIdx < 0 || !viewRows[currentIdx]) return;
+  if (currentIdx < 0 || !viewHeroes[currentIdx]) return;
   
-  const hero = viewRows[currentIdx];
+  const hero = viewHeroes[currentIdx];
   const baseStats = {
-    'Сила': toNum(hero[F.power]) || 0,
-    'Атака': toNum(hero[F.attack]) || 0,
-    'Защита': toNum(hero[F.defense]) || 0,
-    'Жизни': toNum(hero[F.hp]) || 0
+    'Сила': toNum(hero[HERO_FIELDS.power]) || 0,
+    'Атака': toNum(hero[HERO_FIELDS.attack]) || 0,
+    'Защита': toNum(hero[HERO_FIELDS.defense]) || 0,
+    'Жизни': toNum(hero[HERO_FIELDS.hp]) || 0
   };
-  
-  // Добавляем возможные дополнительные статы из талантов
-  const allEffects = [];
-  if (currentHeroTalents.mandatoryTalents) {
-    currentHeroTalents.mandatoryTalents.forEach(id => {
-      allEffects.push(...getTalentEffects(id));
-    });
-  }
-  Object.values(currentHeroTalents.selections).forEach(s => {
-    if (s.talentIds) {
-      s.talentIds.forEach(id => {
-        allEffects.push(...getTalentEffects(id));
-      });
-    }
-  });
-  
-  // Добавляем новые статы, которых нет в базовых
-  allEffects.forEach(effect => {
-    if (effect.target && !(effect.target in baseStats) && effect.target !== 'unknown') {
-      baseStats[effect.target] = 0;
-    }
-  });
   
   const { finalStats, changes } = calculateFinalStats(baseStats, currentHeroTalents);
   
@@ -2186,37 +2205,37 @@ function updateCalculatedStats() {
 }
 
 // Функция заполнения модального окна
-function fillModal(h){
-  const img = fileCellToUrl(h[F.image]);
+function fillModal(hero) {
+  const img = fileCellToUrl(hero[HERO_FIELDS.image]);
   els.mImg.src = img || '';
-  els.mImg.alt = h[F.name] || '';
+  els.mImg.alt = hero[HERO_FIELDS.name] || '';
   els.mOpenImg.href = img || '#';
   els.mOpenImg.style.display = img ? 'inline-block' : 'none';
 
-  els.mName.textContent = h[F.name] || '';
+  els.mName.textContent = hero[HERO_FIELDS.name] || '';
   els.mMeta1.innerHTML = `
-    <span>${h[F.element] || ''}</span>
-    <span>${h[F.stars] ? h[F.stars] + '★' : ''}</span>
-    <span>${h[F.mana] || ''}</span>
+    <span>${hero[HERO_FIELDS.element] || ''}</span>
+    <span>${hero[HERO_FIELDS.stars] ? hero[HERO_FIELDS.stars] + '★' : ''}</span>
+    <span>${hero[HERO_FIELDS.mana] || ''}</span>
   `;
   els.mMeta2.innerHTML = `
-    <span>${h[F.attackType] || ''}</span>
-    <span>${h[F.summon] || ''}</span>
-    <span>${h[F.clazz] || ''}</span>
+    <span>${hero[HERO_FIELDS.attackType] || ''}</span>
+    <span>${hero[HERO_FIELDS.summon] || ''}</span>
+    <span>${hero[HERO_FIELDS.clazz] || ''}</span>
   `;
   els.mStats.innerHTML = `
-    <span class="pill">С: ${h[F.power] || ''}</span>
-    <span class="pill">А: ${h[F.attack] || ''}</span>
-    <span class="pill">З: ${h[F.defense] || ''}</span>
-    <span class="pill">Ж: ${h[F.hp] || ''}</span>
+    <span class="pill">С: ${hero[HERO_FIELDS.power] || ''}</span>
+    <span class="pill">А: ${hero[HERO_FIELDS.attack] || ''}</span>
+    <span class="pill">З: ${hero[HERO_FIELDS.defense] || ''}</span>
+    <span class="pill">Ж: ${hero[HERO_FIELDS.hp] || ''}</span>
   `;
   
-  const abilitiesText = String(h[F.abilities] || '—');
+  const abilitiesText = String(hero[HERO_FIELDS.abilities] || '—');
   els.mAbilities.textContent = abilitiesText.replace(/^'/, '').replace(/'$/, '');
-  els.mPassive.textContent = String(h[F.passive] || '—').replace(/^'/, '').replace(/'$/, '');
+  els.mPassive.textContent = String(hero[HERO_FIELDS.passive] || '—').replace(/^'/, '').replace(/'$/, '');
   
   // Устанавливаем класс героя для талантов
-  const heroClass = h[F.clazz];
+  const heroClass = hero[HERO_FIELDS.clazz];
   if (heroClass && classTalents[heroClass]) {
     currentHeroTalents = {
       class: heroClass,
@@ -2242,96 +2261,96 @@ function fillModal(h){
   }
 }
 
-function openModal(idx){
-  if (!viewRows.length) return;
+function openModal(idx) {
+  if (!viewHeroes.length) return;
   currentIdx = idx;
-  fillModal(viewRows[currentIdx]);
+  fillModal(viewHeroes[currentIdx]);
   els.modal.classList.add('show');
   document.body.style.overflow = 'hidden';
 }
 
-function closeModal(){
+function closeModal() {
   els.modal.classList.remove('show');
   document.body.style.overflow = '';
   currentIdx = -1;
 }
 
-function go(delta){
-  if (currentIdx < 0 || !viewRows.length) return;
-  currentIdx = (currentIdx + delta + viewRows.length) % viewRows.length;
-  fillModal(viewRows[currentIdx]);
+function go(delta) {
+  if (currentIdx < 0 || !viewHeroes.length) return;
+  currentIdx = (currentIdx + delta + viewHeroes.length) % viewHeroes.length;
+  fillModal(viewHeroes[currentIdx]);
 }
 
-function applyFilters(){
+function applyFilters() {
   const q = els.searchInput.value.trim().toLowerCase();
   
-  viewRows = allRows.filter(r => {
-    const tName = String(r[F.name] || '').toLowerCase();
-    const tAbil = String(r[F.abilities] || '').toLowerCase();
+  viewHeroes = allHeroes.filter(r => {
+    const tName = String(r[HERO_FIELDS.name] || '').toLowerCase();
+    const tAbil = String(r[HERO_FIELDS.abilities] || '').toLowerCase();
     const passQ = !q || tName.includes(q) || tAbil.includes(q);
-    const passElem   = selected.element.size === 0   || selected.element.has(String(r[F.element]));
-    const passStars  = selected.stars.size === 0     || selected.stars.has(String(r[F.stars]));
-    const passMana   = selected.mana.size === 0      || selected.mana.has(String(r[F.mana]));
-    const passAtkT   = selected.attackType.size === 0|| selected.attackType.has(String(r[F.attackType]));
-    const passSummon = selected.summon.size === 0    || selected.summon.has(String(r[F.summon]));
-    const passClazz  = selected.clazz.size === 0     || selected.clazz.has(String(r[F.clazz]));
-    const passHeroes = selected.heroes.size === 0    || selected.heroes.has(String(r[F.name]));
+    const passElem = selected.element.size === 0 || selected.element.has(String(r[HERO_FIELDS.element]));
+    const passStars = selected.stars.size === 0 || selected.stars.has(String(r[HERO_FIELDS.stars]));
+    const passMana = selected.mana.size === 0 || selected.mana.has(String(r[HERO_FIELDS.mana]));
+    const passAtkT = selected.attackType.size === 0 || selected.attackType.has(String(r[HERO_FIELDS.attackType]));
+    const passSummon = selected.summon.size === 0 || selected.summon.has(String(r[HERO_FIELDS.summon]));
+    const passClazz = selected.clazz.size === 0 || selected.clazz.has(String(r[HERO_FIELDS.clazz]));
+    const passHeroes = selected.heroes.size === 0 || selected.heroes.has(String(r[HERO_FIELDS.name]));
     
     return passQ && passElem && passStars && passMana && passAtkT && passSummon && passClazz && passHeroes;
   });
 
   const by = els.sortSelect.value;
   
-  viewRows.sort((a, b) => {
+  viewHeroes.sort((a, b) => {
     const av = a[by], bv = b[by];
     const an = toNum(av), bn = toNum(bv);
     let cmp;
     if (an != null && bn != null) cmp = an - bn;
-    else cmp = String(av || '').localeCompare(String(bv || ''), 'ru', {numeric: true});
+    else cmp = String(av || '').localeCompare(String(bv || ''), 'ru', { numeric: true });
     return sortDirection === 'asc' ? cmp : -cmp;
   });
 
-  els.count.textContent = `Найдено: ${viewRows.length}`;
-  renderCards(viewRows);
+  els.count.textContent = `Найдено: ${viewHeroes.length}`;
+  renderCards(viewHeroes);
   
-  filteredHeroNames = uniq(viewRows.map(r => r[F.name])).sort(sortAlpha);
+  filteredHeroNames = uniq(viewHeroes.map(r => r[HERO_FIELDS.name])).sort(sortAlpha);
   updateHeroCheckboxes();
 }
 
-function renderCards(rows){
-  if (!rows.length){
+function renderCards(heroes) {
+  if (!heroes.length) {
     els.cards.innerHTML = '';
     els.empty.style.display = 'block';
     return;
   }
   els.empty.style.display = 'none';
-  els.cards.innerHTML = rows.map((r, i) => {
-    const img = fileCellToUrl(r[F.image]);
-    const abilitiesFull = String(r[F.abilities] || '');
+  els.cards.innerHTML = heroes.map((r, i) => {
+    const img = fileCellToUrl(r[HERO_FIELDS.image]);
+    const abilitiesFull = String(r[HERO_FIELDS.abilities] || '');
     const cleanedAbilities = abilitiesFull.replace(/^'/, '').replace(/'$/, '');
     const hasAbilities = cleanedAbilities.trim().length > 0;
     
     return `
-      <article class="card" data-idx="${i}" data-element="${r[F.element] || ''}">
+      <article class="card" data-idx="${i}" data-element="${r[HERO_FIELDS.element] || ''}">
         <div class="thumb">
-          ${img ? `<img src="${img}" alt="${r[F.name] || ''}" loading="lazy" onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<div style=\\'color: #999; padding: 20px; text-align: center;\\'>Нет изображения</div>';">` : '<div style="color: #999; padding: 20px; text-align: center;">Нет изображения</div>'}
+          ${img ? `<img src="${img}" alt="${r[HERO_FIELDS.name] || ''}" loading="lazy" onerror="this.onerror=null; this.style.display='none'; this.parentElement.innerHTML='<div style=\\'color: #999; padding: 20px; text-align: center;\\'>Нет изображения</div>';">` : '<div style="color: #999; padding: 20px; text-align: center;">Нет изображения</div>'}
         </div>
-        <h3>${r[F.name] || ''}</h3>
+        <h3>${r[HERO_FIELDS.name] || ''}</h3>
         <div class="meta">
-          <span>${r[F.element] || ''}</span> •
-          <span>${r[F.stars] || ''}★</span> •
-          <span>${r[F.mana] || ''}</span>
+          <span>${r[HERO_FIELDS.element] || ''}</span> •
+          <span>${r[HERO_FIELDS.stars] || ''}★</span> •
+          <span>${r[HERO_FIELDS.mana] || ''}</span>
         </div>
         <div class="meta">
-          <span>${r[F.attackType] || ''}</span> •
-          <span>${r[F.summon] || ''}</span> •
-          <span>${r[F.clazz] || ''}</span>
+          <span>${r[HERO_FIELDS.attackType] || ''}</span> •
+          <span>${r[HERO_FIELDS.summon] || ''}</span> •
+          <span>${r[HERO_FIELDS.clazz] || ''}</span>
         </div>
         <div class="stats">
-          <span class="pill">С: ${r[F.power] || ''}</span>
-          <span class="pill">А: ${r[F.attack] || ''}</span>
-          <span class="pill">З: ${r[F.defense] || ''}</span>
-          <span class="pill">Ж: ${r[F.hp] || ''}</span>
+          <span class="pill">С: ${r[HERO_FIELDS.power] || ''}</span>
+          <span class="pill">А: ${r[HERO_FIELDS.attack] || ''}</span>
+          <span class="pill">З: ${r[HERO_FIELDS.defense] || ''}</span>
+          <span class="pill">Ж: ${r[HERO_FIELDS.hp] || ''}</span>
         </div>
         ${hasAbilities ? `
           <button class="toggle-abilities" data-idx="${i}">Показать способности</button>
@@ -2410,7 +2429,7 @@ function attachEvents() {
     els.sortBtn.setAttribute('data-tooltip', 'Сортировка по убыванию');
     Object.keys(selected).forEach(k => selected[k].clear());
     filteredHeroNames = [...allHeroNames];
-    initAllFacets(allRows);
+    initAllFacets(allHeroes);
     applyFilters();
   });
   
@@ -2493,6 +2512,8 @@ function attachEvents() {
 }
 
 // Загрузка всех данных
+console.log('Начинаем загрузку данных...');
+
 Promise.all([
   // Загрузка героев
   new Promise((resolve, reject) => {
@@ -2501,10 +2522,14 @@ Promise.all([
       header: true,
       skipEmptyLines: true,
       complete: (res) => {
-        allRows = res.data.filter(row => row && row[F.name]);
+        console.log('Герои загружены:', res.data.length);
+        allHeroes = res.data.filter(row => row && row[HERO_FIELDS.name]);
         resolve();
       },
-      error: reject
+      error: (error) => {
+        console.error('Ошибка загрузки героев:', error);
+        reject(error);
+      }
     });
   }),
   // Загрузка описаний талантов
@@ -2514,14 +2539,18 @@ Promise.all([
       header: true,
       skipEmptyLines: true,
       complete: (res) => {
+        console.log('Описания талантов загружены:', res.data.length);
         res.data.forEach(row => {
-          if (row.talent_id) {
-            talentDescriptions[row.talent_id] = row;
+          if (row[TALENT_DESC_FIELDS.talent_id]) {
+            talentDescriptions[row[TALENT_DESC_FIELDS.talent_id]] = row;
           }
         });
         resolve();
       },
-      error: reject
+      error: (error) => {
+        console.error('Ошибка загрузки описаний талантов:', error);
+        reject(error);
+      }
     });
   }),
   // Загрузка классов с талантами
@@ -2531,22 +2560,23 @@ Promise.all([
       header: true,
       skipEmptyLines: true,
       complete: (res) => {
+        console.log('Классы с талантами загружены:', res.data.length);
         res.data.forEach(row => {
-          if (!row.class_id) return;
+          if (!row[CLASS_TALENT_FIELDS.class_id]) return;
           
-          const className = row.class_id;
+          const className = row[CLASS_TALENT_FIELDS.class_id];
           if (!classTalents[className]) {
             classTalents[className] = [];
           }
           
           classTalents[className].push({
-            rowNumber: parseInt(row.row_number) || 0,
-            isMandatory: row.is_mandatory === 'true' || row.is_mandatory === true,
-            branchGroup: row.branch_group,
-            leftTalentId: row.left_talent_id ? parseInt(row.left_talent_id) : null,
-            centerTalentId: row.center_talent_id ? parseInt(row.center_talent_id) : null,
-            rightTalentId: row.right_talent_id ? parseInt(row.right_talent_id) : null,
-            nextGroup: row.next_group === 'NULL' ? null : row.next_group
+            rowNumber: parseInt(row[CLASS_TALENT_FIELDS.row_number]) || 0,
+            isMandatory: String(row[CLASS_TALENT_FIELDS.is_mandatory]).toLowerCase() === 'true',
+            branchGroup: row[CLASS_TALENT_FIELDS.branch_group],
+            leftTalentId: row[CLASS_TALENT_FIELDS.left_talent_id] ? parseInt(row[CLASS_TALENT_FIELDS.left_talent_id]) : null,
+            centerTalentId: row[CLASS_TALENT_FIELDS.center_talent_id] ? parseInt(row[CLASS_TALENT_FIELDS.center_talent_id]) : null,
+            rightTalentId: row[CLASS_TALENT_FIELDS.right_talent_id] ? parseInt(row[CLASS_TALENT_FIELDS.right_talent_id]) : null,
+            nextGroup: row[CLASS_TALENT_FIELDS.next_group] === 'NULL' ? null : row[CLASS_TALENT_FIELDS.next_group]
           });
         });
         
@@ -2555,22 +2585,27 @@ Promise.all([
           classTalents[className].sort((a, b) => a.rowNumber - b.rowNumber);
         });
         
+        console.log('Обработано классов с талантами:', Object.keys(classTalents).length);
         resolve();
       },
-      error: reject
+      error: (error) => {
+        console.error('Ошибка загрузки классов с талантами:', error);
+        reject(error);
+      }
     });
   })
 ]).then(() => {
-  if (!allRows.length) { 
+  console.log('Все данные успешно загружены');
+  if (!allHeroes.length) { 
     els.count.textContent = 'Данные не найдены. Проверьте heroes.csv'; 
     return; 
   }
-  initAllFacets(allRows);
+  initAllFacets(allHeroes);
   attachEvents();
   applyFilters();
 }).catch(error => {
   console.error('Ошибка загрузки данных:', error);
-  els.count.textContent = 'Ошибка загрузки данных.';
+  els.count.textContent = 'Ошибка загрузки данных. Проверьте консоль для деталей.';
 });
 </script>
 </body>
