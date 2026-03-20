@@ -1047,9 +1047,14 @@ function calculateStatsWithTalents(hero, mode) {
     }
     
     const talents = classTalents[heroClass];
-    let totalAttackPercent = 0, totalAttackFlat = 0;
-    let totalDefensePercent = 0, totalDefenseFlat = 0;
-    let totalHpPercent = 0, totalHpFlat = 0;
+    
+    // Собираем отдельно плоские и процентные бонусы
+    let attackFlat = 0;
+    let attackPercent = 0;
+    let defenseFlat = 0;
+    let defensePercent = 0;
+    let hpFlat = 0;
+    let hpPercent = 0;
     
     // Группируем таланты по branch_group
     const groups = [];
@@ -1075,12 +1080,12 @@ function calculateStatsWithTalents(hero, mode) {
             if (talent.isMandatory && talent.centerTalentId) {
                 console.log(`\n[Группа ${groupIndex}] Обязательный талант (строка ${talent.rowNumber})`);
                 const effects = getTalentEffects(talent.centerTalentId);
-                totalAttackPercent += effects.attackPercent;
-                totalAttackFlat += effects.attackFlat;
-                totalDefensePercent += effects.defensePercent;
-                totalDefenseFlat += effects.defenseFlat;
-                totalHpPercent += effects.hpPercent;
-                totalHpFlat += effects.hpFlat;
+                attackPercent += effects.attackPercent;
+                attackFlat += effects.attackFlat;
+                defensePercent += effects.defensePercent;
+                defenseFlat += effects.defenseFlat;
+                hpPercent += effects.hpPercent;
+                hpFlat += effects.hpFlat;
             }
         }
         
@@ -1134,26 +1139,27 @@ function calculateStatsWithTalents(hero, mode) {
                 
                 if (talentId) {
                     const effects = getTalentEffects(talentId);
-                    totalAttackPercent += effects.attackPercent;
-                    totalAttackFlat += effects.attackFlat;
-                    totalDefensePercent += effects.defensePercent;
-                    totalDefenseFlat += effects.defenseFlat;
-                    totalHpPercent += effects.hpPercent;
-                    totalHpFlat += effects.hpFlat;
+                    attackPercent += effects.attackPercent;
+                    attackFlat += effects.attackFlat;
+                    defensePercent += effects.defensePercent;
+                    defenseFlat += effects.defenseFlat;
+                    hpPercent += effects.hpPercent;
+                    hpFlat += effects.hpFlat;
                     console.log(`[Группа ${groupIndex}] ${selectedSide === 'left' ? 'Левая' : 'Правая'} ветка (строка ${talent.rowNumber})`);
                 }
             }
         }
     }
     
-    console.log(`\n=== ИТОГО БОНУСОВ ===`);
-    console.log(`Атака: +${totalAttackFlat} (плоский) +${totalAttackPercent}%`);
-    console.log(`Защита: +${totalDefenseFlat} (плоский) +${totalDefensePercent}%`);
-    console.log(`Жизни: +${totalHpFlat} (плоский) +${totalHpPercent}%`);
+    // Расчет итоговых характеристик (проценты от БАЗОВЫХ значений)
+    const finalAttack = (baseAttack + attackFlat) * (1 + attackPercent / 100);
+    const finalDefense = (baseDefense + defenseFlat) * (1 + defensePercent / 100);
+    const finalHp = (baseHp + hpFlat) * (1 + hpPercent / 100);
     
-    const finalAttack = (baseAttack + totalAttackFlat) * (1 + totalAttackPercent / 100);
-    const finalDefense = (baseDefense + totalDefenseFlat) * (1 + totalDefensePercent / 100);
-    const finalHp = (baseHp + totalHpFlat) * (1 + totalHpPercent / 100);
+    console.log(`\n=== ИТОГО БОНУСОВ ===`);
+    console.log(`Атака: +${attackFlat} (плоский) +${attackPercent}% от базы ${baseAttack}`);
+    console.log(`Защита: +${defenseFlat} (плоский) +${defensePercent}% от базы ${baseDefense}`);
+    console.log(`Жизни: +${hpFlat} (плоский) +${hpPercent}% от базы ${baseHp}`);
     
     const result = { 
         attack: Math.round(finalAttack), 
