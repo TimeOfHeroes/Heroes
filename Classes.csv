@@ -117,7 +117,7 @@
 116,116,Варвар,16,false,group_6,3,NULL,2,group_7
 117,117,Варвар,17,false,group_6,1,NULL,3,group_7
 118,118,Варвар,18,true,group_7,NULL,1,NULL,group_8
-119,119,Варвар,19,false,group_7,2,NULL,5,group_8
+119,119,Варвар,19,false,group_7,12,NULL,5,group_8
 120,120,Варвар,20,true,group_8,NULL,9,NULL,NULL
 121,121,Паладин,1,true,group_1,NULL,22,NULL,group_2
 122,122,Паладин,2,false,group_1,2,NULL,1,group_2
