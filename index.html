@@ -1088,6 +1088,7 @@ function calculateStatsWithTalents(hero, mode) {
         let selectedSide = null;
         
         if (mode === 'attack') {
+            // Ищем ветку с талантами на атаку
             for (const talent of group) {
                 if (!talent.isMandatory) {
                     if (talent.leftTalentId && doesTalentAffectStat(talent.leftTalentId, 'attack')) {
@@ -1100,9 +1101,14 @@ function calculateStatsWithTalents(hero, mode) {
                     }
                 }
             }
-            if (selectedSide === null) selectedSide = 'left';
+            // Если нет талантов на атаку, берем левую ветку по умолчанию
+            if (selectedSide === null) {
+                selectedSide = 'left';
+                console.log(`[Группа ${groupIndex}] Нет талантов на атаку, выбрана левая ветка по умолчанию`);
+            }
         } 
         else if (mode === 'defense') {
+            // Ищем ветку с талантами на защиту
             for (const talent of group) {
                 if (!talent.isMandatory) {
                     if (talent.leftTalentId && doesTalentAffectStat(talent.leftTalentId, 'defense')) {
@@ -1115,10 +1121,15 @@ function calculateStatsWithTalents(hero, mode) {
                     }
                 }
             }
-            if (selectedSide === null) selectedSide = 'right';
+            // Если нет талантов на защиту, берем правую ветку по умолчанию
+            if (selectedSide === null) {
+                selectedSide = 'right';
+                console.log(`[Группа ${groupIndex}] Нет талантов на защиту, выбрана правая ветка по умолчанию`);
+            }
         }
         
         // Применяем ВСЕ таланты выбранной ветки в этой группе
+        let appliedCount = 0;
         for (const talent of group) {
             if (!talent.isMandatory) {
                 let talentId = null;
@@ -1128,6 +1139,7 @@ function calculateStatsWithTalents(hero, mode) {
                     talentId = talent.rightTalentId;
                 }
                 if (talentId) {
+                    appliedCount++;
                     const effects = getTalentEffects(talentId);
                     attackPercent += effects.attackPercent;
                     attackFlat += effects.attackFlat;
@@ -1135,38 +1147,53 @@ function calculateStatsWithTalents(hero, mode) {
                     defenseFlat += effects.defenseFlat;
                     hpPercent += effects.hpPercent;
                     hpFlat += effects.hpFlat;
-                    console.log(`[Группа ${groupIndex}] ${selectedSide === 'left' ? 'Левая' : 'Правая'} ветка (строка ${talent.rowNumber})`);
+                    
+                    // Логируем каждый примененный талант
+                    let statStr = [];
+                    if (effects.attackFlat) statStr.push(`Атака+${effects.attackFlat}`);
+                    if (effects.attackPercent) statStr.push(`Атака+${effects.attackPercent}%`);
+                    if (effects.defenseFlat) statStr.push(`Защита+${effects.defenseFlat}`);
+                    if (effects.defensePercent) statStr.push(`Защита+${effects.defensePercent}%`);
+                    if (effects.hpFlat) statStr.push(`Жизни+${effects.hpFlat}`);
+                    if (effects.hpPercent) statStr.push(`Жизни+${effects.hpPercent}%`);
+                    
+                    console.log(`[Группа ${groupIndex}] ${selectedSide === 'left' ? 'Левая' : 'Правая'} ветка (строка ${talent.rowNumber}): ${statStr.join(', ')}`);
                 }
             }
         }
+        if (appliedCount === 0) {
+            console.log(`[Группа ${groupIndex}] В выбранной ветке нет талантов`);
+        }
     }
     
-    // ПРАВИЛЬНАЯ ФОРМУЛА: проценты только на базовую характеристику, округление вниз
-    // Итог = база + (база * процент/100) + плоские
+    // ПРАВИЛЬНАЯ ФОРМУЛА: 
+    // Сначала вычисляем бонус от процентов (от базы)
+    // Затем добавляем плоские бонусы
+    // Округляем итоговый бонус вниз
     const attackBonus = (baseAttack * attackPercent / 100) + attackFlat;
-    const finalAttack = baseAttack + attackBonus;
+    const finalAttack = baseAttack + Math.floor(attackBonus);
     
     const defenseBonus = (baseDefense * defensePercent / 100) + defenseFlat;
-    const finalDefense = baseDefense + defenseBonus;
+    const finalDefense = baseDefense + Math.floor(defenseBonus);
     
     const hpBonus = (baseHp * hpPercent / 100) + hpFlat;
-    const finalHp = baseHp + hpBonus;
+    const finalHp = baseHp + Math.floor(hpBonus);
     
-    console.log(`\n=== ИТОГО БОНУСОВ ===`);
-    console.log(`Атака: +${attackFlat} (плоский) +${attackPercent}% от базы ${baseAttack} = +${(baseAttack * attackPercent / 100).toFixed(2)} (процентная часть)`);
-    console.log(`  Суммарный бонус: ${attackBonus.toFixed(2)} → округление вниз = ${Math.floor(attackBonus)}`);
-    console.log(`  Итоговая атака: ${baseAttack} + ${Math.floor(attackBonus)} = ${Math.floor(finalAttack)}`);
-    console.log(`Защита: +${defenseFlat} (плоский) +${defensePercent}% от базы ${baseDefense} = +${(baseDefense * defensePercent / 100).toFixed(2)} (процентная часть)`);
-    console.log(`  Суммарный бонус: ${defenseBonus.toFixed(2)} → округление вниз = ${Math.floor(defenseBonus)}`);
-    console.log(`  Итоговая защита: ${baseDefense} + ${Math.floor(defenseBonus)} = ${Math.floor(finalDefense)}`);
-    console.log(`Жизни: +${hpFlat} (плоский) +${hpPercent}% от базы ${baseHp} = +${(baseHp * hpPercent / 100).toFixed(2)} (процентная часть)`);
-    console.log(`  Суммарный бонус: ${hpBonus.toFixed(2)} → округление вниз = ${Math.floor(hpBonus)}`);
-    console.log(`  Итоговые жизни: ${baseHp} + ${Math.floor(hpBonus)} = ${Math.floor(finalHp)}`);
+    console.log(`\n=== СУММАРНЫЕ БОНУСЫ ===`);
+    console.log(`Атака: процентный = ${(baseAttack * attackPercent / 100).toFixed(2)} (${attackPercent}% от ${baseAttack}), плоский = ${attackFlat}`);
+    console.log(`  Бонус = ${attackBonus.toFixed(2)} → округление вниз = ${Math.floor(attackBonus)}`);
+    console.log(`  Итог = ${baseAttack} + ${Math.floor(attackBonus)} = ${finalAttack}`);
+    console.log(`Защита: процентный = ${(baseDefense * defensePercent / 100).toFixed(2)} (${defensePercent}% от ${baseDefense}), плоский = ${defenseFlat}`);
+    console.log(`  Бонус = ${defenseBonus.toFixed(2)} → округление вниз = ${Math.floor(defenseBonus)}`);
+    console.log(`  Итог = ${baseDefense} + ${Math.floor(defenseBonus)} = ${finalDefense}`);
+    console.log(`Жизни: процентный = ${(baseHp * hpPercent / 100).toFixed(2)} (${hpPercent}% от ${baseHp}), плоский = ${hpFlat}`);
+    console.log(`  Бонус = ${hpBonus.toFixed(2)} → округление вниз = ${Math.floor(hpBonus)}`);
+    console.log(`  Итог = ${baseHp} + ${Math.floor(hpBonus)} = ${finalHp}`);
     
     const result = { 
-        attack: Math.floor(finalAttack), 
-        defense: Math.floor(finalDefense), 
-        hp: Math.floor(finalHp) 
+        attack: finalAttack, 
+        defense: finalDefense, 
+        hp: finalHp 
     };
     
     console.log(`\n=== РЕЗУЛЬТАТ ===`);
