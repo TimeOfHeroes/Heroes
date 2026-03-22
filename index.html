@@ -38,6 +38,9 @@
   --element-unknown: #f0f0f0;
   --card-text: #2d3a3a;
   --card-meta: #4a5a5a;
+  
+  --talent-active-bg: rgba(33, 150, 243, 0.3);
+  --talent-mandatory-bg: #fff3cd;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -70,6 +73,9 @@
     --element-unknown: #3a3a3a;
     --card-text: #f0f0f0;
     --card-meta: #c0c0c0;
+    
+    --talent-active-bg: rgba(33, 150, 243, 0.4);
+    --talent-mandatory-bg: #3a2e1a;
   }
 }
 
@@ -812,51 +818,97 @@ header {
   color: var(--text-color);
   cursor: pointer;
   font-size: 14px;
+  flex: 1;
+}
+.talent-mode-selector .btn {
+  padding: 8px 12px;
+  white-space: nowrap;
 }
 
-.tree-modal {
+/* Окно дерева талантов - справа от модального окна */
+.tree-overlay {
   position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.85);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
   z-index: 2100;
+  display: none;
+  align-items: flex-start;
+  justify-content: flex-end;
+  pointer-events: auto;
 }
-.tree-modal.show {
+.tree-overlay.show {
   display: flex;
 }
-.tree-dialog {
+.tree-panel {
+  position: relative;
   background: var(--card-bg);
-  max-width: 85vw;
-  width: min(1000px, 85vw);
-  max-height: 80vh;
+  width: 550px;
+  max-width: 90vw;
+  height: 100vh;
+  max-height: 100vh;
   overflow: hidden;
-  border-radius: 16px;
   display: flex;
   flex-direction: column;
+  box-shadow: -4px 0 20px rgba(0,0,0,0.3);
+  animation: slideIn 0.2s ease;
+}
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
 }
 .tree-header {
-  padding: 16px 24px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--border-color);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
+  flex-shrink: 0;
 }
-.tree-header h2 {
+.tree-header h3 {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
 }
-.tree-header .tree-controls {
+.tree-header .close-tree {
+  background: none;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  color: var(--text-color);
+  opacity: 0.7;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+.tree-header .close-tree:hover {
+  opacity: 1;
+  background: var(--secondary-color);
+}
+.tree-controls {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   gap: 12px;
-  align-items: center;
   flex-wrap: wrap;
+  align-items: center;
+  flex-shrink: 0;
 }
-.tree-header select, .tree-header button {
+.tree-controls select {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-color);
+  cursor: pointer;
+  flex: 1;
+}
+.tree-controls button {
   padding: 6px 12px;
   border-radius: 6px;
   border: 1px solid var(--border-color);
@@ -864,19 +916,18 @@ header {
   color: var(--text-color);
   cursor: pointer;
 }
-.tree-header button:hover {
+.tree-controls button:hover {
   background: var(--secondary-color);
 }
 .tree-stats-preview {
   background: var(--secondary-color);
-  border-radius: 8px;
-  padding: 12px 16px;
-  margin: 0 20px 16px 20px;
+  padding: 12px 20px;
   display: flex;
   gap: 20px;
   flex-wrap: wrap;
   justify-content: center;
-  border: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
 .tree-stats-preview .stat-item {
   display: flex;
@@ -893,15 +944,15 @@ header {
   color: var(--accent-color);
 }
 .tree-content {
-  padding: 12px;
+  flex: 1;
   overflow-y: auto;
-  max-height: calc(90vh - 180px);
+  padding: 20px;
 }
 .talent-table {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-width: 600px;
+  min-width: 500px;
 }
 .talent-row {
   display: flex;
@@ -917,26 +968,41 @@ header {
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
   transition: all 0.2s;
   overflow: hidden;
+  position: relative;
 }
 .talent-cell img {
   max-width: 90%;
   max-height: 90%;
   object-fit: contain;
 }
-.talent-cell.selectable:hover:not(.mandatory) {
-  transform: scale(1.02);
-  box-shadow: 0 2px 8px rgba(0,0,0,.2);
+.talent-cell.active {
+  background: var(--talent-active-bg);
+}
+.talent-cell.selectable {
   cursor: pointer;
 }
+.talent-cell.selectable:hover {
+  transform: scale(1.02);
+  box-shadow: 0 2px 8px rgba(0,0,0,.2);
+}
+.talent-cell.mandatory {
+  background: var(--talent-mandatory-bg);
+  cursor: default;
+}
+.talent-cell.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
 .tree-footer {
-  padding: 16px 24px;
+  padding: 16px 20px;
   border-top: 1px solid var(--border-color);
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+  flex-shrink: 0;
 }
 .tree-footer button {
   padding: 8px 20px;
@@ -956,22 +1022,16 @@ header {
 }
 
 @media (max-width: 768px) {
+  .tree-panel {
+    width: 100%;
+    max-width: 100%;
+  }
   .talent-cell {
-    width: 70px;
-    height: 70px;
+    width: 55px;
+    height: 55px;
   }
   .talent-table {
-    min-width: 500px;
-  }
-  .tree-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .tree-header .tree-controls {
-    justify-content: space-between;
-  }
-  .tree-stats-preview {
-    margin: 0 12px 12px 12px;
+    min-width: 400px;
   }
 }
 
@@ -1120,16 +1180,15 @@ header {
     <div id="mMeta1" class="meta"></div>
     <div id="mMeta2" class="meta"></div>
     <div id="mStats" class="mStats"></div>
-    <div style="margin: 10px 0;">
-      <button id="openTalentTreeBtn" class="btn primary" style="width: 100%;">🌳 Дерево талантов</button>
-    </div>
     <div class="talent-mode-selector">
       <label>Режим талантов:</label>
       <select id="talentModeSelect">
-        <option value="none">Без талантов</option>
-        <option value="attack">Таланты в атаку (макс)</option>
-        <option value="defense">Таланты в защиту (макс)</option>
+        <option value="manual">✋ Ручной выбор</option>
+        <option value="none">❌ Без талантов</option>
+        <option value="attack">⚔️ Таланты в атаку (макс)</option>
+        <option value="defense">🛡️ Таланты в защиту (макс)</option>
       </select>
+      <button id="openTreeBtn" class="btn secondary">🌳 Дерево талантов</button>
     </div>
     <h3>Способности</h3>
     <div id="mAbilities" class="pre"></div>
@@ -1140,19 +1199,21 @@ header {
 </div>
 </div>
 
-<div id="treeModal" class="tree-modal">
-<div class="tree-dialog">
+<!-- Окно дерева талантов (справа) -->
+<div id="treeOverlay" class="tree-overlay">
+<div class="tree-panel">
   <div class="tree-header">
-    <h2>🌳 Дерево талантов — <span id="treeHeroName"></span></h2>
-    <div class="tree-controls">
-      <select id="treeModeSelect">
-        <option value="manual">✋ Ручной выбор</option>
-        <option value="none">❌ Без талантов</option>
-        <option value="attack">⚔️ Таланты в атаку (макс)</option>
-        <option value="defense">🛡️ Таланты в защиту (макс)</option>
-      </select>
-      <button id="treeResetBtn" class="btn secondary">Сбросить все таланты</button>
-    </div>
+    <h3>🌳 Дерево талантов — <span id="treeHeroName"></span></h3>
+    <button id="closeTreeBtn" class="close-tree">×</button>
+  </div>
+  <div class="tree-controls">
+    <select id="treeModeSelect">
+      <option value="manual">✋ Ручной выбор</option>
+      <option value="none">❌ Без талантов</option>
+      <option value="attack">⚔️ Таланты в атаку (макс)</option>
+      <option value="defense">🛡️ Таланты в защиту (макс)</option>
+    </select>
+    <button id="treeResetBtn" class="btn secondary">Сбросить</button>
   </div>
   <div id="treeStatsPreview" class="tree-stats-preview"></div>
   <div class="tree-content" id="treeContent">
@@ -1200,7 +1261,7 @@ let sortDirection = 'desc';
 let classTalents = {};
 let talentDescriptions = [];
 let currentHeroTalents = {};
-let currentTreeMode = 'manual';
+let currentMode = 'manual';
 
 const talentEffectsMap = {
     1: { type: 'Атака', value: 15, isPercent: false },
@@ -1462,12 +1523,14 @@ function renderTalentTree(hero, selections, mode) {
         for (const talent of group) {
             html += '<div class="talent-row">';
             
+            // Левая колонка
             if (talent.leftTalentId) {
                 const isActive = selectedSide === 'left';
                 const imgUrl = getTalentImage(talent.leftTalentId, isActive);
                 const isSelectable = !talent.isMandatory && isManual;
-                const disabledClass = (!isSelectable || (!isManual && selectedSide !== null && selectedSide !== 'left')) ? 'disabled' : '';
-                html += `<div class="talent-cell ${disabledClass} selectable" data-group="${groupId}" data-side="left" data-talent-id="${talent.leftTalentId}" data-row="${rowCounter}" data-selectable="${isSelectable}">`;
+                const activeClass = isActive ? 'active' : '';
+                const disabledClass = (!isSelectable) ? 'disabled' : '';
+                html += `<div class="talent-cell ${activeClass} ${disabledClass} selectable" data-group="${groupId}" data-side="left" data-talent-id="${talent.leftTalentId}" data-row="${rowCounter}" data-selectable="${isSelectable}">`;
                 if (imgUrl) html += `<img src="${imgUrl}" alt="Талант" loading="lazy" onerror="this.style.display='none'">`;
                 else html += `<div style="font-size:10px; text-align:center;">${talent.leftTalentId}</div>`;
                 html += '</div>';
@@ -1475,9 +1538,10 @@ function renderTalentTree(hero, selections, mode) {
                 html += '<div class="talent-cell" style="background:transparent; border-color:transparent;"></div>';
             }
             
+            // Центральная колонка (обязательная) - не кликабельна
             if (talent.centerTalentId) {
                 const imgUrl = getTalentImage(talent.centerTalentId, true);
-                html += `<div class="talent-cell" data-talent-id="${talent.centerTalentId}" data-row="${rowCounter}" style="cursor:default;">`;
+                html += `<div class="talent-cell mandatory" data-talent-id="${talent.centerTalentId}" data-row="${rowCounter}" style="cursor:default;">`;
                 if (imgUrl) html += `<img src="${imgUrl}" alt="Обязательный талант" loading="lazy" onerror="this.style.display='none'">`;
                 else html += `<div style="font-size:10px; text-align:center;">${talent.centerTalentId}</div>`;
                 html += '</div>';
@@ -1485,12 +1549,14 @@ function renderTalentTree(hero, selections, mode) {
                 html += '<div class="talent-cell" style="background:transparent; border-color:transparent;"></div>';
             }
             
+            // Правая колонка
             if (talent.rightTalentId) {
                 const isActive = selectedSide === 'right';
                 const imgUrl = getTalentImage(talent.rightTalentId, isActive);
                 const isSelectable = !talent.isMandatory && isManual;
-                const disabledClass = (!isSelectable || (!isManual && selectedSide !== null && selectedSide !== 'right')) ? 'disabled' : '';
-                html += `<div class="talent-cell ${disabledClass} selectable" data-group="${groupId}" data-side="right" data-talent-id="${talent.rightTalentId}" data-row="${rowCounter}" data-selectable="${isSelectable}">`;
+                const activeClass = isActive ? 'active' : '';
+                const disabledClass = (!isSelectable) ? 'disabled' : '';
+                html += `<div class="talent-cell ${activeClass} ${disabledClass} selectable" data-group="${groupId}" data-side="right" data-talent-id="${talent.rightTalentId}" data-row="${rowCounter}" data-selectable="${isSelectable}">`;
                 if (imgUrl) html += `<img src="${imgUrl}" alt="Талант" loading="lazy" onerror="this.style.display='none'">`;
                 else html += `<div style="font-size:10px; text-align:center;">${talent.rightTalentId}</div>`;
                 html += '</div>';
@@ -1506,93 +1572,105 @@ function renderTalentTree(hero, selections, mode) {
     document.getElementById('talentTable').innerHTML = html;
     updateTreeStatsPreview(hero, selections);
     
-    document.querySelectorAll('#talentTable .talent-cell.selectable').forEach(cell => {
-        const isSelectable = cell.dataset.selectable === 'true';
-        if (!isSelectable) return;
-        
-        cell.style.cursor = 'pointer';
-        
-        cell.addEventListener('click', (e) => {
-            e.stopPropagation();
+    // Добавляем обработчики кликов только в ручном режиме
+    if (isManual) {
+        document.querySelectorAll('#talentTable .talent-cell.selectable').forEach(cell => {
+            const isSelectable = cell.dataset.selectable === 'true';
+            if (!isSelectable) return;
             
-            const groupId = cell.dataset.group;
-            const side = cell.dataset.side;
-            const talentId = parseInt(cell.dataset.talentId);
+            cell.style.cursor = 'pointer';
             
-            if (!groupId || !side) return;
-            
-            const groupCells = document.querySelectorAll(`#talentTable .talent-cell[data-group="${groupId}"]`);
-            groupCells.forEach(c => {
-                if (!c.classList.contains('mandatory')) {
-                    const tid = c.dataset.talentId;
-                    if (tid) {
-                        const newImgUrl = getTalentImage(parseInt(tid), false);
-                        const img = c.querySelector('img');
-                        if (img && newImgUrl) img.src = newImgUrl;
+            cell.addEventListener('click', (e) => {
+                e.stopPropagation();
+                
+                const groupId = cell.dataset.group;
+                const side = cell.dataset.side;
+                const talentId = parseInt(cell.dataset.talentId);
+                
+                if (!groupId || !side) return;
+                
+                // Деактивируем все ячейки в этой группе
+                const groupCells = document.querySelectorAll(`#talentTable .talent-cell[data-group="${groupId}"]`);
+                groupCells.forEach(c => {
+                    if (!c.classList.contains('mandatory')) {
+                        const tid = c.dataset.talentId;
+                        if (tid) {
+                            const newImgUrl = getTalentImage(parseInt(tid), false);
+                            const img = c.querySelector('img');
+                            if (img && newImgUrl) img.src = newImgUrl;
+                        }
+                        c.classList.remove('active');
                     }
+                });
+                
+                // Активируем выбранную ветку
+                const newImgUrl = getTalentImage(talentId, true);
+                const img = cell.querySelector('img');
+                if (img && newImgUrl) img.src = newImgUrl;
+                cell.classList.add('active');
+                
+                // Активируем все ячейки той же ветки в этой группе
+                const sameSideCells = document.querySelectorAll(`#talentTable .talent-cell[data-group="${groupId}"][data-side="${side}"]`);
+                sameSideCells.forEach(c => {
+                    if (!c.classList.contains('mandatory')) {
+                        const tid = c.dataset.talentId;
+                        if (tid) {
+                            const newUrl = getTalentImage(parseInt(tid), true);
+                            const cImg = c.querySelector('img');
+                            if (cImg && newUrl) cImg.src = newUrl;
+                        }
+                        c.classList.add('active');
+                    }
+                });
+                
+                // Обновляем selection
+                currentHeroTalents[groupId] = side;
+                
+                // Обновляем preview
+                const heroData = viewHeroes[currentIdx];
+                if (heroData) {
+                    updateTreeStatsPreview(heroData, currentHeroTalents);
+                    const calc = calculateStatsWithSelections(heroData, currentHeroTalents);
+                    document.getElementById('mStats').innerHTML = `<span class="pill">С: ${heroData[HERO_FIELDS.power]}</span><span class="pill">А: ${calc.attack}</span><span class="pill">З: ${calc.defense}</span><span class="pill">Ж: ${calc.hp}</span>`;
                 }
             });
-            
-            const newImgUrl = getTalentImage(talentId, true);
-            const img = cell.querySelector('img');
-            if (img && newImgUrl) img.src = newImgUrl;
-            
-            const sameSideCells = document.querySelectorAll(`#talentTable .talent-cell[data-group="${groupId}"][data-side="${side}"]`);
-            sameSideCells.forEach(c => {
-                if (!c.classList.contains('mandatory')) {
-                    const tid = c.dataset.talentId;
-                    if (tid) {
-                        const newUrl = getTalentImage(parseInt(tid), true);
-                        const cImg = c.querySelector('img');
-                        if (cImg && newUrl) cImg.src = newUrl;
-                    }
-                }
-            });
-            
-            currentHeroTalents[groupId] = side;
-            
-            const heroData = viewHeroes[currentIdx];
-            if (heroData) {
-                updateTreeStatsPreview(heroData, currentHeroTalents);
-                const calc = calculateStatsWithSelections(heroData, currentHeroTalents);
-                document.getElementById('mStats').innerHTML = `<span class="pill">С: ${heroData[HERO_FIELDS.power]}</span><span class="pill">А: ${calc.attack}</span><span class="pill">З: ${calc.defense}</span><span class="pill">Ж: ${calc.hp}</span>`;
-            }
         });
-    });
+    }
 }
 
-function openTalentTreeModal() {
+function openTreePanel() {
     const hero = viewHeroes[currentIdx];
     if (!hero) return;
     
     document.getElementById('treeHeroName').textContent = hero[HERO_FIELDS.name];
-    document.getElementById('treeModeSelect').value = currentTreeMode;
-    renderTalentTree(hero, currentHeroTalents, currentTreeMode);
-    document.getElementById('treeModal').classList.add('show');
+    document.getElementById('treeModeSelect').value = currentMode;
+    renderTalentTree(hero, currentHeroTalents, currentMode);
+    document.getElementById('treeOverlay').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
 
-function closeTalentTreeModal() {
-    document.getElementById('treeModal').classList.remove('show');
+function closeTreePanel() {
+    document.getElementById('treeOverlay').classList.remove('show');
     document.body.style.overflow = '';
 }
 
-function saveTalentTree() {
+function saveTreePanel() {
     const hero = viewHeroes[currentIdx];
     if (hero) {
         const calc = calculateStatsWithSelections(hero, currentHeroTalents);
         document.getElementById('mStats').innerHTML = `<span class="pill">С: ${hero[HERO_FIELDS.power]}</span><span class="pill">А: ${calc.attack}</span><span class="pill">З: ${calc.defense}</span><span class="pill">Ж: ${calc.hp}</span>`;
     }
-    closeTalentTreeModal();
+    closeTreePanel();
 }
 
-function resetTalentTree() {
+function resetTreeSelections() {
     currentHeroTalents = {};
     const hero = viewHeroes[currentIdx];
     if (hero) {
-        renderTalentTree(hero, currentHeroTalents, currentTreeMode);
+        renderTalentTree(hero, currentHeroTalents, currentMode);
         const calc = calculateStatsWithSelections(hero, currentHeroTalents);
         document.getElementById('mStats').innerHTML = `<span class="pill">С: ${hero[HERO_FIELDS.power]}</span><span class="pill">А: ${calc.attack}</span><span class="pill">З: ${calc.defense}</span><span class="pill">Ж: ${calc.hp}</span>`;
+        updateTreeStatsPreview(hero, currentHeroTalents);
     }
 }
 
@@ -1601,7 +1679,7 @@ function applyTreeMode() {
     const hero = viewHeroes[currentIdx];
     if (!hero) return;
     
-    currentTreeMode = mode;
+    currentMode = mode;
     
     if (mode === 'none') {
         currentHeroTalents = {};
@@ -1610,6 +1688,7 @@ function applyTreeMode() {
     } else if (mode === 'defense') {
         currentHeroTalents = getOptimalSelections(hero, 'defense');
     }
+    // manual — оставляем текущие selections
     
     renderTalentTree(hero, currentHeroTalents, mode);
     const calc = calculateStatsWithSelections(hero, currentHeroTalents);
@@ -1621,6 +1700,7 @@ function updateMainModalStats() {
     if (!hero) return;
     
     const mode = document.getElementById('talentModeSelect').value;
+    currentMode = mode;
     let selections = {};
     
     if (mode === 'none') {
@@ -1632,6 +1712,8 @@ function updateMainModalStats() {
     } else if (mode === 'defense') {
         selections = getOptimalSelections(hero, 'defense');
         currentHeroTalents = selections;
+    } else if (mode === 'manual') {
+        selections = currentHeroTalents;
     }
     
     const calc = calculateStatsWithSelections(hero, selections);
@@ -1721,15 +1803,10 @@ function openModal(idx) {
     currentIdx = idx;
     const hero = viewHeroes[currentIdx];
     
-    const mode = document.getElementById('talentModeSelect').value;
-    if (mode === 'none') {
-        currentHeroTalents = {};
-    } else if (mode === 'attack') {
-        currentHeroTalents = getOptimalSelections(hero, 'attack');
-    } else if (mode === 'defense') {
-        currentHeroTalents = getOptimalSelections(hero, 'defense');
-    }
-    currentTreeMode = 'manual';
+    // Сбрасываем режим на ручной выбор при смене героя
+    currentMode = 'manual';
+    document.getElementById('talentModeSelect').value = 'manual';
+    currentHeroTalents = {};
     
     fillModal(hero);
     document.getElementById('modal').classList.add('show');
@@ -1749,28 +1826,6 @@ function fillModal(hero) {
     
     document.getElementById('mAbilities').textContent = String(hero[HERO_FIELDS.abilities]||'—').replace(/^'|'$/g,'');
     document.getElementById('mPassive').textContent = String(hero[HERO_FIELDS.passive]||'—').replace(/^'|'$/g,'');
-}
-
-function updateModalStats() {
-    if(currentIdx>=0 && viewHeroes[currentIdx]) {
-        let hero = viewHeroes[currentIdx];
-        let mode = document.getElementById('talentModeSelect').value;
-        let selections = {};
-        
-        if (mode === 'none') {
-            selections = {};
-            currentHeroTalents = {};
-        } else if (mode === 'attack') {
-            selections = getOptimalSelections(hero, 'attack');
-            currentHeroTalents = selections;
-        } else if (mode === 'defense') {
-            selections = getOptimalSelections(hero, 'defense');
-            currentHeroTalents = selections;
-        }
-        
-        const calc = calculateStatsWithSelections(hero, selections);
-        document.getElementById('mStats').innerHTML = `<span class="pill">С: ${hero[HERO_FIELDS.power]}</span><span class="pill">А: ${calc.attack}</span><span class="pill">З: ${calc.defense}</span><span class="pill">Ж: ${calc.hp}</span>`;
-    }
 }
 
 function closeModal() { document.getElementById('modal').classList.remove('show'); document.body.style.overflow=''; currentIdx=-1; }
@@ -1836,10 +1891,11 @@ function attachEvents() {
     document.getElementById('infoModal').addEventListener('click',e=>{if(e.target===document.getElementById('infoModal')){document.getElementById('infoModal').classList.remove('show'); document.body.style.overflow='';}});
     
     document.getElementById('talentModeSelect').addEventListener('change', updateMainModalStats);
-    document.getElementById('openTalentTreeBtn').addEventListener('click', openTalentTreeModal);
-    document.getElementById('treeCancelBtn').addEventListener('click', closeTalentTreeModal);
-    document.getElementById('treeSaveBtn').addEventListener('click', saveTalentTree);
-    document.getElementById('treeResetBtn').addEventListener('click', resetTalentTree);
+    document.getElementById('openTreeBtn').addEventListener('click', openTreePanel);
+    document.getElementById('closeTreeBtn').addEventListener('click', closeTreePanel);
+    document.getElementById('treeCancelBtn').addEventListener('click', closeTreePanel);
+    document.getElementById('treeSaveBtn').addEventListener('click', saveTreePanel);
+    document.getElementById('treeResetBtn').addEventListener('click', resetTreeSelections);
     document.getElementById('treeModeSelect').addEventListener('change', applyTreeMode);
     
     document.getElementById('updateDate').textContent = new Date().toLocaleDateString('ru-RU',{year:'numeric',month:'long',day:'numeric'});
