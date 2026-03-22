@@ -840,7 +840,7 @@ header {
   white-space: nowrap;
 }
 
-/* Окно дерева талантов - плавающее справа, не блокирует клики */
+/* Окно дерева талантов - перетаскиваемое */
 .tree-panel {
   position: fixed;
   top: 50%;
@@ -856,9 +856,14 @@ header {
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--border-color);
+  cursor: default;
 }
 .tree-panel.show {
   display: flex;
+}
+.tree-panel.dragging {
+  opacity: 0.9;
+  cursor: grabbing;
 }
 .tree-header {
   padding: 12px 16px;
@@ -867,11 +872,16 @@ header {
   justify-content: space-between;
   align-items: center;
   background: var(--card-bg);
+  cursor: grab;
+}
+.tree-panel.dragging .tree-header {
+  cursor: grabbing;
 }
 .tree-header h3 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
+  user-select: none;
 }
 .tree-close {
   background: none;
@@ -939,7 +949,6 @@ header {
 @media (max-width: 768px) {
   .tree-panel {
     width: 320px;
-    right: 10px;
   }
   .talent-cell {
     width: 50px;
@@ -950,16 +959,19 @@ header {
 @media (max-width: 480px) {
   .tree-panel {
     width: calc(100vw - 20px);
-    right: 10px;
-    left: 10px;
+    max-width: none;
     top: auto;
-    bottom: 10px;
+    bottom: 20px;
+    left: 10px;
+    right: 10px;
     transform: none;
-    max-height: 60vh;
   }
   .talent-cell {
     width: 45px;
     height: 45px;
+  }
+  .tree-header {
+    cursor: default;
   }
 }
 
@@ -1127,9 +1139,9 @@ header {
 </div>
 </div>
 
-<!-- Окно дерева талантов (плавающее справа) -->
+<!-- Окно дерева талантов (перетаскиваемое) -->
 <div id="treePanel" class="tree-panel">
-  <div class="tree-header">
+  <div class="tree-header" id="treeHeader">
     <h3>🌳 Дерево талантов — <span id="treeHeroName"></span></h3>
     <button id="closeTreeBtn" class="tree-close">×</button>
   </div>
@@ -1174,6 +1186,11 @@ let classTalents = {};
 let talentDescriptions = [];
 let currentHeroTalents = {};
 let currentMode = 'none';
+
+// Переменные для drag-and-drop
+let isDragging = false;
+let dragStartX = 0, dragStartY = 0;
+let panelStartX = 0, panelStartY = 0;
 
 const talentEffectsMap = {
     1: { type: 'Атака', value: 15, isPercent: false },
@@ -1532,13 +1549,76 @@ function renderTalentTree(hero, selections, mode) {
     }
 }
 
+function initDragAndDrop() {
+    const panel = document.getElementById('treePanel');
+    const header = document.getElementById('treeHeader');
+    
+    function onMouseDown(e) {
+        // Только на десктопе, не на мобильных
+        if (window.innerWidth <= 480) return;
+        if (e.target.closest('.tree-close')) return;
+        
+        isDragging = true;
+        dragStartX = e.clientX - panel.offsetLeft;
+        dragStartY = e.clientY - panel.offsetTop;
+        
+        panel.style.cursor = 'grabbing';
+        panel.classList.add('dragging');
+        
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+        e.preventDefault();
+    }
+    
+    function onMouseMove(e) {
+        if (!isDragging) return;
+        
+        let newLeft = e.clientX - dragStartX;
+        let newTop = e.clientY - dragStartY;
+        
+        // Ограничиваем по краям экрана
+        const maxLeft = window.innerWidth - panel.offsetWidth - 10;
+        const minLeft = 10;
+        const maxTop = window.innerHeight - panel.offsetHeight - 10;
+        const minTop = 10;
+        
+        newLeft = Math.min(Math.max(newLeft, minLeft), maxLeft);
+        newTop = Math.min(Math.max(newTop, minTop), maxTop);
+        
+        panel.style.left = newLeft + 'px';
+        panel.style.top = newTop + 'px';
+        panel.style.right = 'auto';
+        panel.style.transform = 'none';
+    }
+    
+    function onMouseUp() {
+        isDragging = false;
+        panel.style.cursor = '';
+        panel.classList.remove('dragging');
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+    }
+    
+    header.addEventListener('mousedown', onMouseDown);
+}
+
 function openTreePanel() {
     const hero = viewHeroes[currentIdx];
     if (!hero) return;
     
+    const panel = document.getElementById('treePanel');
+    
+    // Сбрасываем позицию при открытии (только если позиция не была сохранена)
+    if (!panel.style.left && !panel.style.top) {
+        panel.style.left = '';
+        panel.style.right = '20px';
+        panel.style.top = '50%';
+        panel.style.transform = 'translateY(-50%)';
+    }
+    
     document.getElementById('treeHeroName').textContent = hero[HERO_FIELDS.name];
     renderTalentTree(hero, currentHeroTalents, currentMode);
-    document.getElementById('treePanel').classList.add('show');
+    panel.classList.add('show');
 }
 
 function closeTreePanel() {
@@ -1568,7 +1648,6 @@ function updateMainModalStats() {
     const calc = calculateStatsWithSelections(hero, selections);
     document.getElementById('mStats').innerHTML = `<span class="pill">С: ${hero[HERO_FIELDS.power]}</span><span class="pill">А: ${calc.attack}</span><span class="pill">З: ${calc.defense}</span><span class="pill">Ж: ${calc.hp}</span>`;
     
-    // Если окно дерева открыто, обновляем его
     if (document.getElementById('treePanel').classList.contains('show')) {
         renderTalentTree(hero, currentHeroTalents, currentMode);
     }
@@ -1748,6 +1827,8 @@ function attachEvents() {
     document.getElementById('closeTreeBtn').addEventListener('click', closeTreePanel);
     
     document.getElementById('updateDate').textContent = new Date().toLocaleDateString('ru-RU',{year:'numeric',month:'long',day:'numeric'});
+    
+    initDragAndDrop();
 }
 
 Promise.all([
