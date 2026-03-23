@@ -96,7 +96,7 @@ body {
   line-height: 1.4;
 }
 
-/* Tooltip для талантов */
+/* Tooltip для талантов - без стрелочки */
 .talent-tooltip {
   position: fixed;
   background: var(--tooltip-bg);
@@ -992,6 +992,14 @@ header {
   box-shadow: 0 2px 8px rgba(0,0,0,.2);
   background: var(--talent-hover-bg);
 }
+.talent-cell[data-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.talent-cell[data-disabled="true"]:hover {
+  transform: none;
+  box-shadow: none;
+}
 
 @media (max-width: 768px) {
   .tree-panel {
@@ -1305,11 +1313,7 @@ function getTalentDescriptionById(talentId) {
     
     // Специальная обработка для Кровавого вихря
     if (typeName === 'Кровавый вихрь') {
-        if (value === 35) {
-            desc = 'Кровавый вихрь: +' + value + suffix + ' шанс вызвать кровотечение при обычной атаке. Наносит 60% урона каждый ход в течение 5 ходов.';
-        } else {
-            desc = 'Кровавый вихрь: +' + value + suffix + ' шанс вызвать кровотечение при обычной атаке. Наносит 60% урона каждый ход в течение 5 ходов.';
-        }
+        desc = 'Кровавый вихрь: +' + value + suffix + ' шанс вызвать кровотечение при обычной атаке. Наносит 60% урона каждый ход в течение 5 ходов.';
     } 
     // Специальная обработка для Исцеления
     else if (typeName === 'Исцеление') {
@@ -1375,6 +1379,7 @@ function getTalentDescriptionById(talentId) {
     
     return desc;
 }
+
 function getTalentEffects(numId) {
     const talent = talentEffectsMap[numId];
     if (!talent) return { attackPercent:0, attackFlat:0, defensePercent:0, defenseFlat:0, hpPercent:0, hpFlat:0 };
@@ -1564,133 +1569,6 @@ function renderTalentTree(hero, selections, mode) {
         }
     }
     if (currentGroup.length > 0) groups.push(currentGroup);
-    let html = '';
-    let rowCounter = 1;
-    const showActive = mode !== 'none';
-    const isManual = mode === 'manual';
-    for (const group of groups) {
-        const groupId = group[0].branchGroup;
-        const selectedSide = selections[groupId];
-        for (const talent of group) {
-            html += '<div class="talent-row">';
-            if (talent.leftTalentId) {
-                const isActive = showActive && selectedSide === 'left';
-                const imgUrl = getTalentImage(talent.leftTalentId, isActive);
-                const selectableClass = isManual ? 'selectable' : '';
-                const activeClass = isActive ? 'active' : '';
-                html += `<div class="talent-cell ${activeClass} ${selectableClass}" data-group="${groupId}" data-side="left" data-talent-id="${talent.leftTalentId}" data-row="${rowCounter}">`;
-                if (imgUrl) html += `<img src="${imgUrl}" alt="Талант" loading="lazy" onerror="this.style.display='none'">`;
-                else html += `<div style="font-size:10px; text-align:center;">${talent.leftTalentId}</div>`;
-                html += '</div>';
-            } else {
-                html += '<div class="talent-cell" style="background:transparent; border-color:transparent;"></div>';
-            }
-            if (talent.centerTalentId) {
-                const imgUrl = getTalentImage(talent.centerTalentId, true);
-                html += `<div class="talent-cell mandatory" data-talent-id="${talent.centerTalentId}" data-row="${rowCounter}">`;
-                if (imgUrl) html += `<img src="${imgUrl}" alt="Обязательный талант" loading="lazy" onerror="this.style.display='none'">`;
-                else html += `<div style="font-size:10px; text-align:center;">${talent.centerTalentId}</div>`;
-                html += '</div>';
-            } else {
-                html += '<div class="talent-cell" style="background:transparent; border-color:transparent;"></div>';
-            }
-            if (talent.rightTalentId) {
-                const isActive = showActive && selectedSide === 'right';
-                const imgUrl = getTalentImage(talent.rightTalentId, isActive);
-                const selectableClass = isManual ? 'selectable' : '';
-                const activeClass = isActive ? 'active' : '';
-                html += `<div class="talent-cell ${activeClass} ${selectableClass}" data-group="${groupId}" data-side="right" data-talent-id="${talent.rightTalentId}" data-row="${rowCounter}">`;
-                if (imgUrl) html += `<img src="${imgUrl}" alt="Талант" loading="lazy" onerror="this.style.display='none'">`;
-                else html += `<div style="font-size:10px; text-align:center;">${talent.rightTalentId}</div>`;
-                html += '</div>';
-            } else {
-                html += '<div class="talent-cell" style="background:transparent; border-color:transparent;"></div>';
-            }
-            html += '</div>';
-            rowCounter++;
-        }
-    }
-    document.getElementById('talentTable').innerHTML = html;
-    
-    // Добавляем обработчики для всплывающих подсказок
-    document.querySelectorAll('#talentTable .talent-cell').forEach(cell => {
-        const talentId = parseInt(cell.dataset.talentId);
-        if (talentId) {
-            cell.addEventListener('mouseenter', (e) => {
-                const rect = cell.getBoundingClientRect();
-                showTalentTooltip(talentId, rect.right, rect.top);
-            });
-            cell.addEventListener('mouseleave', () => {
-                hideTalentTooltip();
-            });
-        }
-    });
-    
-    if (isManual) {
-        document.querySelectorAll('#talentTable .talent-cell.selectable').forEach(cell => {
-            cell.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const groupId = cell.dataset.group;
-                const side = cell.dataset.side;
-                const talentId = parseInt(cell.dataset.talentId);
-                if (!groupId || !side) return;
-                const groupCells = document.querySelectorAll(`#talentTable .talent-cell[data-group="${groupId}"]`);
-                groupCells.forEach(c => {
-                    if (!c.classList.contains('mandatory')) {
-                        const tid = c.dataset.talentId;
-                        if (tid) {
-                            const newImgUrl = getTalentImage(parseInt(tid), false);
-                            const img = c.querySelector('img');
-                            if (img && newImgUrl) img.src = newImgUrl;
-                        }
-                        c.classList.remove('active');
-                    }
-                });
-                const newImgUrl = getTalentImage(talentId, true);
-                const img = cell.querySelector('img');
-                if (img && newImgUrl) img.src = newImgUrl;
-                cell.classList.add('active');
-                const sameSideCells = document.querySelectorAll(`#talentTable .talent-cell[data-group="${groupId}"][data-side="${side}"]`);
-                sameSideCells.forEach(c => {
-                    if (!c.classList.contains('mandatory')) {
-                        const tid = c.dataset.talentId;
-                        if (tid) {
-                            const newUrl = getTalentImage(parseInt(tid), true);
-                            const cImg = c.querySelector('img');
-                            if (cImg && newUrl) cImg.src = newUrl;
-                        }
-                        c.classList.add('active');
-                    }
-                });
-                currentHeroTalents[groupId] = side;
-                const heroData = viewHeroes[currentIdx];
-                if (heroData) {
-                    const calc = calculateStatsWithSelections(heroData, currentHeroTalents);
-                    document.getElementById('mStats').innerHTML = '<span class="pill">С: ' + heroData[HERO_FIELDS.power] + '</span><span class="pill">А: ' + calc.attack + '</span><span class="pill">З: ' + calc.defense + '</span><span class="pill">Ж: ' + calc.hp + '</span>';
-                }
-            });
-        });
-    }
-}
-
-function renderTalentTree(hero, selections, mode) {
-    const heroClass = hero[HERO_FIELDS.clazz];
-    if (!classTalents[heroClass]) {
-        document.getElementById('talentTable').innerHTML = '<p>Нет данных о талантах для этого класса</p>';
-        return;
-    }
-    const talents = classTalents[heroClass];
-    const groups = [];
-    let currentGroup = [];
-    for (const talent of talents) {
-        if (currentGroup.length === 0 || currentGroup[0].branchGroup === talent.branchGroup) {
-            currentGroup.push(talent);
-        } else {
-            groups.push([...currentGroup]);
-            currentGroup = [talent];
-        }
-    }
-    if (currentGroup.length > 0) groups.push(currentGroup);
     
     let html = '';
     let rowCounter = 1;
@@ -1737,7 +1615,7 @@ function renderTalentTree(hero, selections, mode) {
                 html += '<div class="talent-cell" style="background:transparent; border-color:transparent;"></div>';
             }
             
-            // Центральная колонка (обязательная) - всегда видима
+            // Центральная колонка (обязательная)
             if (talent.centerTalentId) {
                 const imgUrl = getTalentImage(talent.centerTalentId, true);
                 html += `<div class="talent-cell mandatory" data-talent-id="${talent.centerTalentId}" data-row="${rowCounter}">`;
@@ -1804,18 +1682,8 @@ function renderTalentTree(hero, selections, mode) {
                 if (!groupId || !side) return;
                 
                 // Проверяем, можно ли выбрать эту группу (не пропущена ли предыдущая)
-                // Находим индекс текущей группы
-                let currentGroupIdx = -1;
-                for (let i = 0; i < groups.length; i++) {
-                    if (groups[i][0].branchGroup === groupId) {
-                        currentGroupIdx = i;
-                        break;
-                    }
-                }
-                
-                // Проверяем, что все предыдущие группы уже имеют выбор
                 let allPreviousSelected = true;
-                for (let i = 0; i < currentGroupIdx; i++) {
+                for (let i = 0; i < groupIdx; i++) {
                     const prevGroupId = groups[i][0].branchGroup;
                     if (!currentHeroTalents[prevGroupId]) {
                         allPreviousSelected = false;
@@ -1892,6 +1760,46 @@ function renderTalentTree(hero, selections, mode) {
             });
         });
     }
+}
+
+function initDragAndDrop() {
+    const panel = document.getElementById('treePanel');
+    const header = document.getElementById('treeHeader');
+    function onMouseDown(e) {
+        if (window.innerWidth <= 480) return;
+        if (e.target.closest('.tree-close')) return;
+        isDragging = true;
+        dragStartX = e.clientX - panel.offsetLeft;
+        dragStartY = e.clientY - panel.offsetTop;
+        panel.style.cursor = 'grabbing';
+        panel.classList.add('dragging');
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+        e.preventDefault();
+    }
+    function onMouseMove(e) {
+        if (!isDragging) return;
+        let newLeft = e.clientX - dragStartX;
+        let newTop = e.clientY - dragStartY;
+        const maxLeft = window.innerWidth - panel.offsetWidth - 10;
+        const minLeft = 10;
+        const maxTop = window.innerHeight - panel.offsetHeight - 10;
+        const minTop = 10;
+        newLeft = Math.min(Math.max(newLeft, minLeft), maxLeft);
+        newTop = Math.min(Math.max(newTop, minTop), maxTop);
+        panel.style.left = newLeft + 'px';
+        panel.style.top = newTop + 'px';
+        panel.style.right = 'auto';
+        panel.style.transform = 'none';
+    }
+    function onMouseUp() {
+        isDragging = false;
+        panel.style.cursor = '';
+        panel.classList.remove('dragging');
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+    }
+    header.addEventListener('mousedown', onMouseDown);
 }
 
 function openTreePanel() {
