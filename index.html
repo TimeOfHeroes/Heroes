@@ -43,6 +43,8 @@
   --talent-active-border: #f9a825;
   --talent-mandatory-bg: #fff3cd;
   --talent-hover-bg: rgba(255, 235, 59, 0.5);
+  --tooltip-bg: #2d2d2d;
+  --tooltip-text: #fff;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -80,6 +82,8 @@
     --talent-active-border: #ffd700;
     --talent-mandatory-bg: #3a2e1a;
     --talent-hover-bg: rgba(184, 134, 11, 0.5);
+    --tooltip-bg: #1a1a1a;
+    --tooltip-text: #eee;
   }
 }
 
@@ -91,6 +95,42 @@ body {
   color: var(--text-color);
   line-height: 1.4;
 }
+
+/* Tooltip для талантов */
+.talent-tooltip {
+  position: fixed;
+  background: var(--tooltip-bg);
+  color: var(--tooltip-text);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: normal;
+  max-width: 280px;
+  word-wrap: break-word;
+  white-space: normal;
+  z-index: 10000;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  border: 1px solid var(--border-color);
+  transition: opacity 0.15s;
+  line-height: 1.4;
+}
+.talent-tooltip::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 20px;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 6px solid var(--tooltip-bg);
+}
+.talent-tooltip.hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+
 header { 
   position: sticky; 
   top: 0; 
@@ -963,27 +1003,6 @@ header {
   background: var(--talent-hover-bg);
 }
 
-.talent-info {
-  margin-top: 16px;
-  padding: 12px;
-  background: var(--secondary-color);
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  font-size: 13px;
-}
-.talent-info-title {
-  font-weight: 600;
-  margin-bottom: 6px;
-  color: var(--accent-color);
-}
-.talent-info-desc {
-  line-height: 1.4;
-}
-.talent-info-empty {
-  opacity: 0.6;
-  font-style: italic;
-}
-
 @media (max-width: 768px) {
   .tree-panel {
     width: 340px;
@@ -1184,10 +1203,6 @@ header {
   </div>
   <div class="tree-content" id="treeContent">
     <div class="talent-table" id="talentTable"></div>
-    <div id="talentInfo" class="talent-info">
-      <div class="talent-info-title">ℹ️ Описание таланта</div>
-      <div class="talent-info-desc talent-info-empty">Нажмите на талант, чтобы увидеть его описание</div>
-    </div>
   </div>
 </div>
 
@@ -1230,6 +1245,34 @@ let currentMode = 'none';
 
 let isDragging = false;
 let dragStartX = 0, dragStartY = 0;
+
+// Tooltip элементы
+let tooltipElement = null;
+
+function initTooltip() {
+    if (!tooltipElement) {
+        tooltipElement = document.createElement('div');
+        tooltipElement.className = 'talent-tooltip hidden';
+        document.body.appendChild(tooltipElement);
+    }
+}
+
+function showTalentTooltip(talentId, x, y) {
+    if (!tooltipElement) initTooltip();
+    const desc = getTalentDescriptionById(talentId);
+    if (desc) {
+        tooltipElement.innerHTML = desc;
+        tooltipElement.classList.remove('hidden');
+        tooltipElement.style.left = (x + 15) + 'px';
+        tooltipElement.style.top = (y - 10) + 'px';
+    }
+}
+
+function hideTalentTooltip() {
+    if (tooltipElement) {
+        tooltipElement.classList.add('hidden');
+    }
+}
 
 const talentEffectsMap = {
     1: { type: 'Атака', value: 15, isPercent: false },
@@ -1455,19 +1498,6 @@ function getOptimalSelections(hero, mode) {
     return selections;
 }
 
-function updateTalentInfo(talentId) {
-    const infoDiv = document.getElementById('talentInfo');
-    const descDiv = infoDiv.querySelector('.talent-info-desc');
-    const desc = getTalentDescriptionById(talentId);
-    if (desc) {
-        descDiv.innerHTML = desc;
-        descDiv.classList.remove('talent-info-empty');
-    } else {
-        descDiv.innerHTML = 'Неизвестный талант';
-        descDiv.classList.remove('talent-info-empty');
-    }
-}
-
 function renderTalentTree(hero, selections, mode) {
     const heroClass = hero[HERO_FIELDS.clazz];
     if (!classTalents[heroClass]) {
@@ -1533,10 +1563,21 @@ function renderTalentTree(hero, selections, mode) {
         }
     }
     document.getElementById('talentTable').innerHTML = html;
-    const infoDiv = document.getElementById('talentInfo');
-    const descDiv = infoDiv.querySelector('.talent-info-desc');
-    descDiv.innerHTML = 'Нажмите на талант, чтобы увидеть его описание';
-    descDiv.classList.add('talent-info-empty');
+    
+    // Добавляем обработчики для всплывающих подсказок
+    document.querySelectorAll('#talentTable .talent-cell').forEach(cell => {
+        const talentId = parseInt(cell.dataset.talentId);
+        if (talentId) {
+            cell.addEventListener('mouseenter', (e) => {
+                const rect = cell.getBoundingClientRect();
+                showTalentTooltip(talentId, rect.right, rect.top);
+            });
+            cell.addEventListener('mouseleave', () => {
+                hideTalentTooltip();
+            });
+        }
+    });
+    
     if (isManual) {
         document.querySelectorAll('#talentTable .talent-cell.selectable').forEach(cell => {
             cell.addEventListener('click', (e) => {
@@ -1545,7 +1586,6 @@ function renderTalentTree(hero, selections, mode) {
                 const side = cell.dataset.side;
                 const talentId = parseInt(cell.dataset.talentId);
                 if (!groupId || !side) return;
-                updateTalentInfo(talentId);
                 const groupCells = document.querySelectorAll(`#talentTable .talent-cell[data-group="${groupId}"]`);
                 groupCells.forEach(c => {
                     if (!c.classList.contains('mandatory')) {
@@ -1579,23 +1619,6 @@ function renderTalentTree(hero, selections, mode) {
                 if (heroData) {
                     const calc = calculateStatsWithSelections(heroData, currentHeroTalents);
                     document.getElementById('mStats').innerHTML = '<span class="pill">С: ' + heroData[HERO_FIELDS.power] + '</span><span class="pill">А: ' + calc.attack + '</span><span class="pill">З: ' + calc.defense + '</span><span class="pill">Ж: ' + calc.hp + '</span>';
-                }
-            });
-        });
-        document.querySelectorAll('#talentTable .talent-cell.selectable, #talentTable .talent-cell.mandatory').forEach(cell => {
-            cell.addEventListener('mouseenter', () => {
-                const talentId = parseInt(cell.dataset.talentId);
-                if (talentId) {
-                    updateTalentInfo(talentId);
-                }
-            });
-        });
-    } else if (mode !== 'none') {
-        document.querySelectorAll('#talentTable .talent-cell').forEach(cell => {
-            cell.addEventListener('mouseenter', () => {
-                const talentId = parseInt(cell.dataset.talentId);
-                if (talentId) {
-                    updateTalentInfo(talentId);
                 }
             });
         });
@@ -1659,6 +1682,7 @@ function openTreePanel() {
 
 function closeTreePanel() {
     document.getElementById('treePanel').classList.remove('show');
+    hideTalentTooltip();
 }
 
 function updateMainModalStats() {
@@ -1847,6 +1871,7 @@ function attachEvents() {
     document.getElementById('openTreeBtn').addEventListener('click', openTreePanel);
     document.getElementById('closeTreeBtn').addEventListener('click', closeTreePanel);
     document.getElementById('updateDate').textContent = new Date().toLocaleDateString('ru-RU', {year:'numeric',month:'long',day:'numeric'});
+    initTooltip();
     initDragAndDrop();
 }
 
