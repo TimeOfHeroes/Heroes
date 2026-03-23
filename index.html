@@ -39,8 +39,10 @@
   --card-text: #2d3a3a;
   --card-meta: #4a5a5a;
   
-  --talent-active-bg: rgba(33, 150, 243, 0.3);
+  --talent-active-bg: #ffeb3b;
+  --talent-active-border: #f9a825;
   --talent-mandatory-bg: #fff3cd;
+  --talent-hover-bg: rgba(255, 235, 59, 0.5);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -74,8 +76,10 @@
     --card-text: #f0f0f0;
     --card-meta: #c0c0c0;
     
-    --talent-active-bg: rgba(33, 150, 243, 0.4);
+    --talent-active-bg: #b8860b;
+    --talent-active-border: #ffd700;
     --talent-mandatory-bg: #3a2e1a;
+    --talent-hover-bg: rgba(184, 134, 11, 0.5);
   }
 }
 
@@ -723,14 +727,25 @@ header {
   overflow-y: auto;
   max-height: calc(90vh - 60px);
 }
+.image-container {
+  background: var(--element-unknown);
+  border-radius: 12px;
+  padding: 12px;
+  transition: background 0.3s;
+}
+.image-container[data-element="Синий"] { background: var(--element-blue); }
+.image-container[data-element="Зеленый"] { background: var(--element-green); }
+.image-container[data-element="Красный"] { background: var(--element-red); }
+.image-container[data-element="Фиолетовый"] { background: var(--element-purple); }
+.image-container[data-element="Желтый"] { background: var(--element-yellow); }
 .dialog img { 
   width: 100%;
   height: auto;
   max-height: 350px;
   object-fit: contain;
   border-radius: 12px;
-  background: var(--secondary-color);
-  padding: 15px;
+  background: transparent;
+  padding: 8px;
 }
 .dialog h2 { 
   margin: 0 0 12px; 
@@ -846,7 +861,7 @@ header {
   top: 50%;
   right: 20px;
   transform: translateY(-50%);
-  width: 380px;
+  width: 420px;
   max-width: calc(100vw - 40px);
   background: var(--card-bg);
   border-radius: 16px;
@@ -904,7 +919,7 @@ header {
 .tree-content {
   padding: 16px;
   overflow-y: auto;
-  max-height: 70vh;
+  max-height: 60vh;
 }
 .talent-table {
   display: flex;
@@ -917,10 +932,10 @@ header {
   justify-content: center;
 }
 .talent-cell {
-  width: 60px;
-  height: 60px;
+  width: 70px;
+  height: 70px;
   background: var(--secondary-color);
-  border: 1px solid var(--border-color);
+  border: 2px solid var(--border-color);
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -928,14 +943,16 @@ header {
   transition: all 0.2s;
   overflow: hidden;
   cursor: pointer;
+  position: relative;
 }
 .talent-cell img {
-  max-width: 90%;
-  max-height: 90%;
+  max-width: 85%;
+  max-height: 85%;
   object-fit: contain;
 }
 .talent-cell.active {
   background: var(--talent-active-bg);
+  border-color: var(--talent-active-border);
 }
 .talent-cell.mandatory {
   background: var(--talent-mandatory-bg);
@@ -944,15 +961,38 @@ header {
 .talent-cell.selectable:hover {
   transform: scale(1.02);
   box-shadow: 0 2px 8px rgba(0,0,0,.2);
+  background: var(--talent-hover-bg);
+}
+
+/* Панель описания таланта */
+.talent-info {
+  margin-top: 16px;
+  padding: 12px;
+  background: var(--secondary-color);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  font-size: 13px;
+}
+.talent-info-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--accent-color);
+}
+.talent-info-desc {
+  line-height: 1.4;
+}
+.talent-info-empty {
+  opacity: 0.6;
+  font-style: italic;
 }
 
 @media (max-width: 768px) {
   .tree-panel {
-    width: 320px;
+    width: 340px;
   }
   .talent-cell {
-    width: 50px;
-    height: 50px;
+    width: 55px;
+    height: 55px;
   }
 }
 
@@ -1114,7 +1154,7 @@ header {
 <button id="mPrev" class="nav prev">‹</button>
 <button id="mNext" class="nav next">›</button>
 <div class="modal-content">
-  <div class="image-container"><img id="mImg" src=""><a id="mOpenImg" class="open-img" href="#" target="_blank">Открыть изображение в новой вкладке</a></div>
+  <div class="image-container" id="modalImageContainer"><img id="mImg" src=""><a id="mOpenImg" class="open-img" href="#" target="_blank">Открыть изображение в новой вкладке</a></div>
   <div class="info-container">
     <h2 id="mName"></h2>
     <div id="mMeta1" class="meta"></div>
@@ -1147,6 +1187,10 @@ header {
   </div>
   <div class="tree-content" id="treeContent">
     <div class="talent-table" id="talentTable"></div>
+    <div id="talentInfo" class="talent-info">
+      <div class="talent-info-title">ℹ️ Описание таланта</div>
+      <div class="talent-info-desc talent-info-empty">Нажмите на талант, чтобы увидеть его описание</div>
+    </div>
   </div>
 </div>
 
@@ -1220,6 +1264,30 @@ const talentEffectsMap = {
     25: { type: 'Пробитие', value: 5, isPercent: true },
     26: { type: 'Кровавый вихрь', value: 35, isPercent: true }
 };
+
+function getTalentDescriptionById(talentId) {
+    const talent = talentEffectsMap[talentId];
+    if (!talent) return null;
+    const isPercent = talent.isPercent;
+    const value = talent.value;
+    const typeName = talent.type;
+    const suffix = isPercent ? '%' : '';
+    let desc = `${typeName} +${value}${suffix}`;
+    if (typeName === 'Исцеление') desc = `Исцеление +${value}${suffix}`;
+    if (typeName === 'Крит') desc = `Шанс критического удара +${value}${suffix}`;
+    if (typeName === 'Бонус к скорости набора маны') desc = `Скорость набора маны +${value}${suffix}`;
+    if (typeName === 'Шанс уклониться') desc = `Уклонение +${value}${suffix}`;
+    if (typeName === 'Стойкость') desc = `Стойкость (шанс избежать ослабления) +${value}${suffix}`;
+    if (typeName === 'Подавление магии') desc = `Подавление магии (шанс заблокировать урон от навыков) +${value}${suffix}`;
+    if (typeName === 'Концентрация') desc = `Концентрация (шанс снять ослабление при использовании навыка) +${value}${suffix}`;
+    if (typeName === 'Магический разряд') desc = `Магический разряд (урон по врагу при использовании навыка) +${value}${suffix}`;
+    if (typeName === 'Кровавый вихрь') desc = `Кровавый вихрь (восстановление здоровья от нанесённого урона) +${value}${suffix}`;
+    if (typeName === 'Непоколебимость') desc = `Непоколебимость (снижение получаемого урона) +${value}${suffix}`;
+    if (typeName === 'Природный зов') desc = `Природный зов (шанс призвать помощника) +${value}${suffix}`;
+    if (typeName === 'Второе дыхание') desc = `Второе дыхание (восстановление здоровья при критическом здоровье) +${value}${suffix}`;
+    if (typeName === 'Пробитие') desc = `Пробитие (игнорирование защиты) +${value}${suffix}`;
+    return desc;
+}
 
 function getTalentEffects(numId) {
     const talent = talentEffectsMap[numId];
@@ -1411,6 +1479,19 @@ function getOptimalSelections(hero, mode) {
     return selections;
 }
 
+function updateTalentInfo(talentId) {
+    const infoDiv = document.getElementById('talentInfo');
+    const descDiv = infoDiv.querySelector('.talent-info-desc');
+    const desc = getTalentDescriptionById(talentId);
+    if (desc) {
+        descDiv.innerHTML = desc;
+        descDiv.classList.remove('talent-info-empty');
+    } else {
+        descDiv.innerHTML = 'Неизвестный талант';
+        descDiv.classList.remove('talent-info-empty');
+    }
+}
+
 function renderTalentTree(hero, selections, mode) {
     const heroClass = hero[HERO_FIELDS.clazz];
     if (!classTalents[heroClass]) {
@@ -1489,6 +1570,12 @@ function renderTalentTree(hero, selections, mode) {
     
     document.getElementById('talentTable').innerHTML = html;
     
+    // Сброс описания
+    const infoDiv = document.getElementById('talentInfo');
+    const descDiv = infoDiv.querySelector('.talent-info-desc');
+    descDiv.innerHTML = 'Нажмите на талант, чтобы увидеть его описание';
+    descDiv.classList.add('talent-info-empty');
+    
     // Добавляем обработчики кликов только в ручном режиме
     if (isManual) {
         document.querySelectorAll('#talentTable .talent-cell.selectable').forEach(cell => {
@@ -1500,6 +1587,9 @@ function renderTalentTree(hero, selections, mode) {
                 const talentId = parseInt(cell.dataset.talentId);
                 
                 if (!groupId || !side) return;
+                
+                // Показываем описание таланта
+                updateTalentInfo(talentId);
                 
                 // Деактивируем все ячейки в этой группе
                 const groupCells = document.querySelectorAll(`#talentTable .talent-cell[data-group="${groupId}"]`);
@@ -1546,6 +1636,26 @@ function renderTalentTree(hero, selections, mode) {
                 }
             });
         });
+        
+        // Добавляем наведение для показа описания при наведении (опционально)
+        document.querySelectorAll('#talentTable .talent-cell.selectable, #talentTable .talent-cell.mandatory').forEach(cell => {
+            cell.addEventListener('mouseenter', () => {
+                const talentId = parseInt(cell.dataset.talentId);
+                if (talentId) {
+                    updateTalentInfo(talentId);
+                }
+            });
+        });
+    } else if (mode !== 'none') {
+        // В автоматических режимах тоже показываем описание при наведении
+        document.querySelectorAll('#talentTable .talent-cell').forEach(cell => {
+            cell.addEventListener('mouseenter', () => {
+                const talentId = parseInt(cell.dataset.talentId);
+                if (talentId) {
+                    updateTalentInfo(talentId);
+                }
+            });
+        });
     }
 }
 
@@ -1554,7 +1664,6 @@ function initDragAndDrop() {
     const header = document.getElementById('treeHeader');
     
     function onMouseDown(e) {
-        // Только на десктопе, не на мобильных
         if (window.innerWidth <= 480) return;
         if (e.target.closest('.tree-close')) return;
         
@@ -1576,7 +1685,6 @@ function initDragAndDrop() {
         let newLeft = e.clientX - dragStartX;
         let newTop = e.clientY - dragStartY;
         
-        // Ограничиваем по краям экрана
         const maxLeft = window.innerWidth - panel.offsetWidth - 10;
         const minLeft = 10;
         const maxTop = window.innerHeight - panel.offsetHeight - 10;
@@ -1608,7 +1716,6 @@ function openTreePanel() {
     
     const panel = document.getElementById('treePanel');
     
-    // Сбрасываем позицию при открытии (только если позиция не была сохранена)
     if (!panel.style.left && !panel.style.top) {
         panel.style.left = '';
         panel.style.right = '20px';
@@ -1656,7 +1763,7 @@ function updateMainModalStats() {
 function toNum(v) { let n = parseFloat(String(v).replace(',','.')); return isNaN(n)?null:n; }
 function uniq(arr) { return [...new Set(arr.filter(v=>v!==null&&v!==undefined&&String(v).trim()!==''))]; }
 function sortAlpha(a,b) { return String(a).localeCompare(String(b),'ru',{numeric:true}); }
-function fileCellToUrl(v) { let s=String(v||''); let m=s.match(/\((https?:\/\/[^)]+)\)/i); if(m) return m[1]; let m2=s.match(/https?:\/\/\S+/i); return m2?m2[0].replace(/[),]+$/,''):''; }
+function fileCellToUrl(v) { let s=String(v||''); let m=s.match(/\((https?:\/\/[^)]+)\)/i); if(m) return m[1]; let m2=s.match(/https?:\/\/\S+/i); return m2?m2[0].replace(/[),]+$/,''); }
 
 function buildFacet(container, values, facetKey) {
     let opts = uniq(values);
@@ -1752,6 +1859,10 @@ function fillModal(hero) {
     document.getElementById('mName').textContent = hero[HERO_FIELDS.name]||'';
     document.getElementById('mMeta1').innerHTML = `<span>${hero[HERO_FIELDS.element]}</span> <span>${hero[HERO_FIELDS.stars]}★</span> <span>${hero[HERO_FIELDS.mana]}</span>`;
     document.getElementById('mMeta2').innerHTML = `<span>${hero[HERO_FIELDS.attackType]}</span> <span>${hero[HERO_FIELDS.summon]}</span> <span>${hero[HERO_FIELDS.clazz]}</span>`;
+    
+    // Устанавливаем фон под фото по стихии
+    const container = document.getElementById('modalImageContainer');
+    container.setAttribute('data-element', hero[HERO_FIELDS.element] || '');
     
     const calc = calculateStatsWithSelections(hero, currentHeroTalents);
     document.getElementById('mStats').innerHTML = `<span class="pill">С: ${hero[HERO_FIELDS.power]}</span><span class="pill">А: ${calc.attack}</span><span class="pill">З: ${calc.defense}</span><span class="pill">Ж: ${calc.hp}</span>`;
