@@ -533,7 +533,7 @@ header {
   display: block;
 }
 .filters .panel { 
-  padding:16px; 
+  padding: 16px;
   background: var(--filter-bg);
   display: flex;
   flex-direction: column;
@@ -552,11 +552,6 @@ header {
   top: 0;
   background: var(--filter-bg);
   z-index: 10;
-}
-.filters h2 { 
-  margin:0; 
-  font-size:18px; 
-  font-weight: 600;
 }
 .facet { 
   margin-bottom:20px; 
@@ -2075,8 +2070,13 @@ function attachEvents() {
         applyFilters();
     });
     
-    // Функция открытия фильтров с оверлеем
+    // Функция открытия фильтров с оверлеем и динамическим отступом
     function openFiltersPanel() {
+        const headerHeight = document.querySelector('header').offsetHeight;
+        const filterPanel = document.querySelector('.filters .panel');
+        if (filterPanel) {
+            filterPanel.style.paddingTop = (headerHeight + 16) + 'px';
+        }
         document.getElementById('filters').classList.add('show');
         document.getElementById('filterOverlay').classList.add('show');
         document.body.style.overflow = 'hidden';
@@ -2087,6 +2087,19 @@ function attachEvents() {
         document.getElementById('filterOverlay').classList.remove('show');
         document.body.style.overflow = '';
     }
+    
+    // Обновляем отступ при изменении размера окна
+    function updateFilterPadding() {
+        if (document.getElementById('filters').classList.contains('show')) {
+            const headerHeight = document.querySelector('header').offsetHeight;
+            const filterPanel = document.querySelector('.filters .panel');
+            if (filterPanel) {
+                filterPanel.style.paddingTop = (headerHeight + 16) + 'px';
+            }
+        }
+    }
+    
+    window.addEventListener('resize', updateFilterPadding);
     
     document.getElementById('openFilters').addEventListener('click', openFiltersPanel);
     document.getElementById('applyFiltersBtn').addEventListener('click', () => { applyFilters(); closeFiltersPanel(); });
