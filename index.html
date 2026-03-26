@@ -1030,6 +1030,26 @@ header {
   }
 }
 
+/* Мобильная адаптация фильтров */
+@media (max-width: 768px) {
+  .filters {
+    top: 0;
+    max-height: 100vh;
+    width: 85%;
+    border-radius: 0 12px 12px 0;
+  }
+  .filters .panel {
+    padding-top: 60px;
+  }
+  .filters .head {
+    position: sticky;
+    top: 0;
+    background: var(--filter-bg);
+    z-index: 10;
+    padding-top: 12px;
+  }
+}
+
 .info-modal {
   position: fixed;
   inset: 0;
@@ -1422,6 +1442,61 @@ function getTalentValue(talentId, statType, baseStat) {
     return value;
 }
 
+function getTalentType(talentId) {
+    const talent = talentEffectsMap[talentId];
+    return talent ? talent.type : '';
+}
+
+function getTalentPriorityScore(talentId, mode, baseAttack, baseDefense, baseHp) {
+    const talent = talentEffectsMap[talentId];
+    if (!talent) return -1;
+    
+    const typeLower = talent.type.toLowerCase();
+    const isPercent = talent.isPercent;
+    const value = talent.value;
+    
+    // Режим атаки
+    if (mode === 'attack') {
+        // 1. Атака (наивысший приоритет)
+        if (typeLower.includes('атак')) {
+            return 100000 + (isPercent ? baseAttack * value / 100 : value);
+        }
+        // 2. Защита
+        else if (typeLower.includes('защит')) {
+            return 50000 + (isPercent ? baseDefense * value / 100 : value);
+        }
+        // 3. Здоровье
+        else if (typeLower.includes('жизн') || typeLower.includes('здоров')) {
+            return 10000 + (isPercent ? baseHp * value / 100 : value);
+        }
+        // 4. Всё остальное
+        else {
+            return 1000 + value;
+        }
+    }
+    // Режим защиты
+    else if (mode === 'defense') {
+        // 1. Защита (наивысший приоритет)
+        if (typeLower.includes('защит')) {
+            return 100000 + (isPercent ? baseDefense * value / 100 : value);
+        }
+        // 2. Здоровье
+        else if (typeLower.includes('жизн') || typeLower.includes('здоров')) {
+            return 50000 + (isPercent ? baseHp * value / 100 : value);
+        }
+        // 3. Атака
+        else if (typeLower.includes('атак')) {
+            return 10000 + (isPercent ? baseAttack * value / 100 : value);
+        }
+        // 4. Всё остальное
+        else {
+            return 1000 + value;
+        }
+    }
+    
+    return 0;
+}
+
 function calculateStatsWithSelections(hero, selections, mode) {
     const heroClass = hero[HERO_FIELDS.clazz];
     const baseAttack = toNum(hero[HERO_FIELDS.attack]) || 0;
@@ -1504,34 +1579,6 @@ function calculateStatsWithSelections(hero, selections, mode) {
     };
 }
 
-function getTalentType(talentId) {
-    const talent = talentEffectsMap[talentId];
-    return talent ? talent.type : '';
-}
-
-function calculateDefenseScore(talentId, baseDefense, baseHp) {
-    const talent = talentEffectsMap[talentId];
-    if (!talent) return 0;
-    
-    const isPercent = talent.isPercent;
-    const value = talent.value;
-    const typeLower = talent.type.toLowerCase();
-    
-    // Для атаки, скорости маны, крита и остальных считаем "полезность"
-    if (typeLower.includes('атак')) {
-        return value * 1.0; // атака
-    }
-    else if (typeLower.includes('бонус к скорости набора маны') || typeLower.includes('скорость маны')) {
-        return value * 0.9; // скорость маны
-    }
-    else if (typeLower.includes('крит')) {
-        return value * 0.8; // крит
-    }
-    else {
-        return value * 0.5; // всё остальное
-    }
-}
-
 function getOptimalSelections(hero, mode) {
     const heroClass = hero[HERO_FIELDS.clazz];
     if (!classTalents[heroClass]) return {};
@@ -1557,87 +1604,34 @@ function getOptimalSelections(hero, mode) {
     for (const group of groups) {
         const groupId = group[0].branchGroup;
         
-        if (mode === 'attack') {
-            let bestValue = -1;
-            let bestSide = null;
-            for (const talent of group) {
-                if (!talent.isMandatory) {
-                    if (talent.leftTalentId) {
-                        const value = getTalentValue(talent.leftTalentId, 'attack', baseAttack);
-                        if (value > bestValue) {
-                            bestValue = value;
-                            bestSide = 'left';
-                        }
+        let bestScore = -1;
+        let bestSide = null;
+        
+        for (const talent of group) {
+            if (!talent.isMandatory) {
+                // Проверяем левый талант
+                if (talent.leftTalentId) {
+                    const score = getTalentPriorityScore(talent.leftTalentId, mode, baseAttack, baseDefense, baseHp);
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestSide = 'left';
                     }
-                    if (talent.rightTalentId) {
-                        const value = getTalentValue(talent.rightTalentId, 'attack', baseAttack);
-                        if (value > bestValue) {
-                            bestValue = value;
-                            bestSide = 'right';
-                        }
+                }
+                // Проверяем правый талант
+                if (talent.rightTalentId) {
+                    const score = getTalentPriorityScore(talent.rightTalentId, mode, baseAttack, baseDefense, baseHp);
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestSide = 'right';
                     }
                 }
             }
-            if (bestSide !== null) {
-                selections[groupId] = bestSide;
-            } else {
-                selections[groupId] = 'left';
-            }
-        } 
-        else if (mode === 'defense') {
-            let hasDefenseTalent = false;
-            let defenseSide = null;
-            let healthSide = null;
-            let bestOtherScore = -1;
-            let bestOtherSide = null;
-            
-            for (const talent of group) {
-                if (!talent.isMandatory) {
-                    // Проверяем левый талант
-                    if (talent.leftTalentId) {
-                        const typeLower = getTalentType(talent.leftTalentId).toLowerCase();
-                        if (typeLower.includes('защит')) {
-                            hasDefenseTalent = true;
-                            defenseSide = 'left';
-                        } else if (typeLower.includes('жизн') || typeLower.includes('здоров')) {
-                            healthSide = 'left';
-                        } else {
-                            const score = calculateDefenseScore(talent.leftTalentId, baseDefense, baseHp);
-                            if (score > bestOtherScore) {
-                                bestOtherScore = score;
-                                bestOtherSide = 'left';
-                            }
-                        }
-                    }
-                    // Проверяем правый талант
-                    if (talent.rightTalentId) {
-                        const typeLower = getTalentType(talent.rightTalentId).toLowerCase();
-                        if (typeLower.includes('защит')) {
-                            hasDefenseTalent = true;
-                            defenseSide = 'right';
-                        } else if (typeLower.includes('жизн') || typeLower.includes('здоров')) {
-                            healthSide = 'right';
-                        } else {
-                            const score = calculateDefenseScore(talent.rightTalentId, baseDefense, baseHp);
-                            if (score > bestOtherScore) {
-                                bestOtherScore = score;
-                                bestOtherSide = 'right';
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Приоритет: сначала защита, потом здоровье, потом всё остальное
-            if (hasDefenseTalent && defenseSide !== null) {
-                selections[groupId] = defenseSide;
-            } else if (healthSide !== null) {
-                selections[groupId] = healthSide;
-            } else if (bestOtherSide !== null) {
-                selections[groupId] = bestOtherSide;
-            } else {
-                selections[groupId] = 'left';
-            }
+        }
+        
+        if (bestSide !== null) {
+            selections[groupId] = bestSide;
+        } else {
+            selections[groupId] = 'left';
         }
     }
     
