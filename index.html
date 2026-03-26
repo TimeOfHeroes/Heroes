@@ -99,7 +99,6 @@ body {
   overflow-x: hidden;
 }
 
-/* Оверлей для затемнения фона при открытых фильтрах */
 .filter-overlay {
   position: fixed;
   top: 0;
@@ -117,7 +116,6 @@ body {
   opacity: 1;
 }
 
-/* Tooltip для талантов - без стрелочки */
 .talent-tooltip {
   position: fixed;
   background: var(--tooltip-bg);
@@ -1050,7 +1048,6 @@ header {
   }
 }
 
-/* Мобильная адаптация фильтров */
 @media (max-width: 768px) {
   .filters {
     width: 85%;
@@ -1272,8 +1269,6 @@ let currentMode = 'none';
 
 let isDragging = false;
 let dragStartX = 0, dragStartY = 0;
-
-// Tooltip элементы
 let tooltipElement = null;
 
 function initTooltip() {
@@ -1443,23 +1438,15 @@ function getTalentValue(talentId, statType, baseStat) {
     if (!talent) return 0;
     const isPercent = talent.isPercent;
     const value = talent.value;
-    const typeName = talent.type;
-    
-    if (statType === 'attack' && typeName !== 'Атака') return 0;
-    if (statType === 'defense' && typeName !== 'Защита') return 0;
-    if (statType === 'hp' && typeName !== 'Жизни') return 0;
-    
+    const typeLower = talent.type.toLowerCase();
+    if (statType === 'attack' && !typeLower.includes('атак')) return 0;
+    if (statType === 'defense' && !typeLower.includes('защит')) return 0;
+    if (statType === 'hp' && !typeLower.includes('жизн') && !typeLower.includes('здоров')) return 0;
     if (isPercent) return baseStat * value / 100;
     return value;
 }
 
-function getTalentType(talentId) {
-    const talent = talentEffectsMap[talentId];
-    return talent ? talent.type : '';
-}
-
 function getBranchScore(branchTalents, mode, baseAttack, baseDefense, baseHp) {
-    // branchTalents — массив талантов в одной ветке (левой или правой)
     let hasDefense = false;
     let hasHealth = false;
     let hasAttack = false;
@@ -1474,7 +1461,6 @@ function getBranchScore(branchTalents, mode, baseAttack, baseDefense, baseHp) {
         const isPercent = talent.isPercent;
         const value = talent.value;
         
-        // Вычисляем значение
         let actualValue = 0;
         if (isPercent) {
             if (typeName === 'Атака') actualValue = baseAttack * value / 100;
@@ -1493,14 +1479,12 @@ function getBranchScore(branchTalents, mode, baseAttack, baseDefense, baseHp) {
     }
     
     if (mode === 'attack') {
-        // Приоритет в атаке: Атака > Защита > Здоровье
         if (hasAttack) return 100000 + totalValue;
         if (hasDefense) return 50000 + totalValue;
         if (hasHealth) return 10000 + totalValue;
         return 1000 + totalValue;
     } 
     else if (mode === 'defense') {
-        // Приоритет в защите: Защита+Здоровье > Защита > Здоровье > Защита+Атака > Атака
         if (hasDefense && hasHealth) return 120000 + totalValue;
         if (hasDefense && !hasHealth && !hasAttack) return 100000 + totalValue;
         if (hasHealth && !hasDefense) return 50000 + totalValue;
@@ -1510,6 +1494,86 @@ function getBranchScore(branchTalents, mode, baseAttack, baseDefense, baseHp) {
     }
     
     return 0;
+}
+
+function calculateStatsWithSelections(hero, selections, mode) {
+    const heroClass = hero[HERO_FIELDS.clazz];
+    const baseAttack = toNum(hero[HERO_FIELDS.attack]) || 0;
+    const baseDefense = toNum(hero[HERO_FIELDS.defense]) || 0;
+    const baseHp = toNum(hero[HERO_FIELDS.hp]) || 0;
+    
+    if (mode === 'none') {
+        return { 
+            attack: Math.floor(baseAttack), 
+            defense: Math.floor(baseDefense), 
+            hp: Math.floor(baseHp) 
+        };
+    }
+    
+    if (!classTalents[heroClass]) {
+        return { attack: Math.floor(baseAttack), defense: Math.floor(baseDefense), hp: Math.floor(baseHp) };
+    }
+    
+    const talents = classTalents[heroClass];
+    let attackFlat = 0, attackPercent = 0, defenseFlat = 0, defensePercent = 0, hpFlat = 0, hpPercent = 0;
+    
+    const groups = [];
+    let currentGroup = [];
+    for (const talent of talents) {
+        if (currentGroup.length === 0 || currentGroup[0].branchGroup === talent.branchGroup) {
+            currentGroup.push(talent);
+        } else {
+            groups.push([...currentGroup]);
+            currentGroup = [talent];
+        }
+    }
+    if (currentGroup.length > 0) groups.push(currentGroup);
+    
+    for (const group of groups) {
+        const groupId = group[0].branchGroup;
+        
+        for (const talent of group) {
+            if (talent.isMandatory && talent.centerTalentId) {
+                const effects = getTalentEffects(talent.centerTalentId);
+                attackPercent += effects.attackPercent;
+                attackFlat += effects.attackFlat;
+                defensePercent += effects.defensePercent;
+                defenseFlat += effects.defenseFlat;
+                hpPercent += effects.hpPercent;
+                hpFlat += effects.hpFlat;
+            }
+        }
+        
+        const selectedSide = selections[groupId];
+        if (selectedSide) {
+            for (const talent of group) {
+                if (!talent.isMandatory) {
+                    let talentId = null;
+                    if (selectedSide === 'left' && talent.leftTalentId) talentId = talent.leftTalentId;
+                    if (selectedSide === 'right' && talent.rightTalentId) talentId = talent.rightTalentId;
+                    if (talentId) {
+                        const effects = getTalentEffects(talentId);
+                        attackPercent += effects.attackPercent;
+                        attackFlat += effects.attackFlat;
+                        defensePercent += effects.defensePercent;
+                        defenseFlat += effects.defenseFlat;
+                        hpPercent += effects.hpPercent;
+                        hpFlat += effects.hpFlat;
+                    }
+                }
+            }
+        }
+    }
+    
+    const attackBonus = (baseAttack * attackPercent / 100) + attackFlat;
+    const defenseBonus = (baseDefense * defensePercent / 100) + defenseFlat;
+    const hpBonus = (baseHp * hpPercent / 100) + hpFlat;
+    
+    return {
+        attack: Math.floor(baseAttack + attackBonus),
+        defense: Math.floor(baseDefense + defenseBonus),
+        hp: Math.floor(baseHp + hpBonus)
+    };
 }
 
 function getOptimalSelections(hero, mode) {
@@ -1537,7 +1601,6 @@ function getOptimalSelections(hero, mode) {
     for (const group of groups) {
         const groupId = group[0].branchGroup;
         
-        // Собираем таланты в левой и правой ветках
         let leftBranchTalents = [];
         let rightBranchTalents = [];
         
@@ -1560,7 +1623,6 @@ function getOptimalSelections(hero, mode) {
         } else if (rightScore > leftScore) {
             selections[groupId] = 'right';
         } else {
-            // Если равны, выбираем левую ветку
             selections[groupId] = 'left';
         }
     }
@@ -1568,60 +1630,6 @@ function getOptimalSelections(hero, mode) {
     return selections;
 }
 
-function getBranchScore(branchTalents, mode, baseAttack, baseDefense, baseHp) {
-    // branchTalents — массив талантов в одной ветке (левой или правой)
-    let hasDefense = false;
-    let hasHealth = false;
-    let hasAttack = false;
-    let totalValue = 0;
-    
-    for (const talentId of branchTalents) {
-        if (!talentId) continue;
-        const talent = talentEffectsMap[talentId];
-        if (!talent) continue;
-        
-        const typeName = talent.type;
-        const isPercent = talent.isPercent;
-        const value = talent.value;
-        
-        // Вычисляем значение
-        let actualValue = 0;
-        if (isPercent) {
-            if (typeName === 'Атака') actualValue = baseAttack * value / 100;
-            else if (typeName === 'Защита') actualValue = baseDefense * value / 100;
-            else if (typeName === 'Жизни') actualValue = baseHp * value / 100;
-            else actualValue = value;
-        } else {
-            actualValue = value;
-        }
-        
-        totalValue += actualValue;
-        
-        if (typeName === 'Защита') hasDefense = true;
-        if (typeName === 'Жизни') hasHealth = true;
-        if (typeName === 'Атака') hasAttack = true;
-    }
-    
-    if (mode === 'attack') {
-        // Приоритет в атаке: Атака > Защита > Здоровье
-        if (hasAttack) return 100000 + totalValue;
-        if (hasDefense) return 50000 + totalValue;
-        if (hasHealth) return 10000 + totalValue;
-        return 1000 + totalValue;
-    } 
-    else if (mode === 'defense') {
-        // Приоритет в защите: Защита+Здоровье > Защита > Здоровье > Защита+Атака > Атака
-        if (hasDefense && hasHealth) return 120000 + totalValue;
-        if (hasDefense && !hasHealth && !hasAttack) return 100000 + totalValue;
-        if (hasHealth && !hasDefense) return 50000 + totalValue;
-        if (hasDefense && hasAttack) return 40000 + totalValue;
-        if (hasAttack) return 10000 + totalValue;
-        return 1000 + totalValue;
-    }
-    
-    return 0;
-}
-  
 function renderTalentTree(hero, selections, mode) {
     const heroClass = hero[HERO_FIELDS.clazz];
     if (!classTalents[heroClass]) {
@@ -2044,7 +2052,6 @@ function attachEvents() {
         applyFilters();
     });
     
-    // Функция открытия фильтров с оверлеем и динамическим отступом
     function openFiltersPanel() {
         const headerHeight = document.querySelector('header').offsetHeight;
         const filterPanel = document.querySelector('.filters .panel');
@@ -2062,7 +2069,6 @@ function attachEvents() {
         document.body.style.overflow = '';
     }
     
-    // Обновляем отступ при изменении размера окна
     function updateFilterPadding() {
         if (document.getElementById('filters').classList.contains('show')) {
             const headerHeight = document.querySelector('header').offsetHeight;
