@@ -45,6 +45,7 @@
   --talent-hover-bg: rgba(255, 235, 59, 0.5);
   --tooltip-bg: #2d2d2d;
   --tooltip-text: #fff;
+  --overlay-bg: rgba(0,0,0,0.5);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -84,6 +85,7 @@
     --talent-hover-bg: rgba(184, 134, 11, 0.5);
     --tooltip-bg: #1a1a1a;
     --tooltip-text: #eee;
+    --overlay-bg: rgba(0,0,0,0.7);
   }
 }
 
@@ -94,6 +96,25 @@ body {
   background: var(--bg-color); 
   color: var(--text-color);
   line-height: 1.4;
+  overflow-x: hidden;
+}
+
+/* Оверлей для затемнения фона при открытых фильтрах */
+.filter-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--overlay-bg);
+  z-index: 98;
+  display: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.filter-overlay.show {
+  display: block;
+  opacity: 1;
 }
 
 /* Tooltip для талантов - без стрелочки */
@@ -496,11 +517,11 @@ header {
   box-shadow: 0 2px 10px rgba(0,0,0,.05);
   width: 320px;
   position: fixed;
-  top: var(--hdrH);
+  top: 0;
   left: 0;
   bottom: 0;
-  max-height: calc(100vh - var(--hdrH));
-  overflow: hidden;
+  height: 100vh;
+  overflow-y: auto;
   z-index: 99;
   border-radius: 0 12px 12px 0;
   transform: translateX(-100%);
@@ -527,6 +548,10 @@ header {
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  background: var(--filter-bg);
+  z-index: 10;
 }
 .filters h2 { 
   margin:0; 
@@ -1033,20 +1058,7 @@ header {
 /* Мобильная адаптация фильтров */
 @media (max-width: 768px) {
   .filters {
-    top: 0;
-    max-height: 100vh;
     width: 85%;
-    border-radius: 0 12px 12px 0;
-  }
-  .filters .panel {
-    padding-top: 60px;
-  }
-  .filters .head {
-    position: sticky;
-    top: 0;
-    background: var(--filter-bg);
-    z-index: 10;
-    padding-top: 12px;
   }
 }
 
@@ -1161,6 +1173,8 @@ header {
     </div>
   </div>
 </header>
+
+<div id="filterOverlay" class="filter-overlay"></div>
 
 <aside id="filters" class="filters">
 <div class="panel">
@@ -1534,7 +1548,7 @@ function calculateStatsWithSelections(hero, selections, mode) {
     for (const group of groups) {
         const groupId = group[0].branchGroup;
         
-        // Обязательные таланты применяются только если режим не "none"
+        // Обязательные таланты применяются всегда в режимах не "none"
         for (const talent of group) {
             if (talent.isMandatory && talent.centerTalentId) {
                 const effects = getTalentEffects(talent.centerTalentId);
@@ -1607,6 +1621,7 @@ function getOptimalSelections(hero, mode) {
         let bestScore = -1;
         let bestSide = null;
         
+        // Проверяем оба таланта в группе (левый и правый) и выбираем лучший
         for (const talent of group) {
             if (!talent.isMandatory) {
                 // Проверяем левый талант
@@ -2059,17 +2074,32 @@ function attachEvents() {
         initAllFacets(allHeroes);
         applyFilters();
     });
-    document.getElementById('applyFiltersBtn').addEventListener('click', () => { applyFilters(); document.getElementById('filters').classList.remove('show'); document.body.style.overflow = ''; });
-    document.getElementById('applyFiltersMobileBtn').addEventListener('click', () => { applyFilters(); document.getElementById('filters').classList.remove('show'); document.body.style.overflow = ''; });
+    
+    // Функция открытия фильтров с оверлеем
+    function openFiltersPanel() {
+        document.getElementById('filters').classList.add('show');
+        document.getElementById('filterOverlay').classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+    
+    function closeFiltersPanel() {
+        document.getElementById('filters').classList.remove('show');
+        document.getElementById('filterOverlay').classList.remove('show');
+        document.body.style.overflow = '';
+    }
+    
+    document.getElementById('openFilters').addEventListener('click', openFiltersPanel);
+    document.getElementById('applyFiltersBtn').addEventListener('click', () => { applyFilters(); closeFiltersPanel(); });
+    document.getElementById('applyFiltersMobileBtn').addEventListener('click', () => { applyFilters(); closeFiltersPanel(); });
+    document.getElementById('closeFilters').addEventListener('click', closeFiltersPanel);
+    document.getElementById('filterOverlay').addEventListener('click', closeFiltersPanel);
+    
     document.getElementById('cards').addEventListener('click', e => { if(e.target.classList.contains('toggle-abilities')) return; let card = e.target.closest('.card'); if(card) openModal(Number(card.dataset.idx)); });
     document.getElementById('mClose').addEventListener('click', closeModal);
     document.getElementById('mPrev').addEventListener('click', () => go(-1));
     document.getElementById('mNext').addEventListener('click', () => go(1));
     document.getElementById('modal').addEventListener('click', e => { if(e.target === document.getElementById('modal')) closeModal(); });
     window.addEventListener('keydown', e => { if(!document.getElementById('modal').classList.contains('show')) return; if(e.key === 'Escape') closeModal(); if(e.key === 'ArrowLeft') go(-1); if(e.key === 'ArrowRight') go(1); if(e.key === 'Escape' && document.getElementById('treePanel').classList.contains('show')) closeTreePanel(); });
-    document.getElementById('openFilters').addEventListener('click', () => { document.getElementById('filters').classList.add('show'); document.body.style.overflow = 'hidden'; });
-    document.getElementById('closeFilters').addEventListener('click', () => { document.getElementById('filters').classList.remove('show'); document.body.style.overflow = ''; });
-    document.getElementById('filters').addEventListener('click', e => { if(e.target === document.getElementById('filters')) { document.getElementById('filters').classList.remove('show'); document.body.style.overflow = ''; } });
     document.getElementById('infoBtn').addEventListener('click', () => { document.getElementById('infoModal').classList.add('show'); document.body.style.overflow = 'hidden'; });
     document.getElementById('infoClose').addEventListener('click', () => { document.getElementById('infoModal').classList.remove('show'); document.body.style.overflow = ''; });
     document.getElementById('infoModal').addEventListener('click', e => { if(e.target === document.getElementById('infoModal')) { document.getElementById('infoModal').classList.remove('show'); document.body.style.overflow = ''; } });
