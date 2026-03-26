@@ -1458,147 +1458,58 @@ function getTalentType(talentId) {
     return talent ? talent.type : '';
 }
 
-function getTalentPriorityScore(talentId, mode, baseAttack, baseDefense, baseHp) {
-    const talent = talentEffectsMap[talentId];
-    if (!talent) return -1;
+function getBranchScore(branchTalents, mode, baseAttack, baseDefense, baseHp) {
+    // branchTalents — массив талантов в одной ветке (левой или правой)
+    let hasDefense = false;
+    let hasHealth = false;
+    let hasAttack = false;
+    let totalValue = 0;
     
-    const typeName = talent.type;
-    const isPercent = talent.isPercent;
-    const value = talent.value;
-    
-    // Вычисляем фактическое значение бонуса
-    let actualValue = 0;
-    if (isPercent) {
-        if (typeName === 'Атака') actualValue = baseAttack * value / 100;
-        else if (typeName === 'Защита') actualValue = baseDefense * value / 100;
-        else if (typeName === 'Жизни') actualValue = baseHp * value / 100;
-        else actualValue = value;
-    } else {
-        actualValue = value;
+    for (const talentId of branchTalents) {
+        if (!talentId) continue;
+        const talent = talentEffectsMap[talentId];
+        if (!talent) continue;
+        
+        const typeName = talent.type;
+        const isPercent = talent.isPercent;
+        const value = talent.value;
+        
+        // Вычисляем значение
+        let actualValue = 0;
+        if (isPercent) {
+            if (typeName === 'Атака') actualValue = baseAttack * value / 100;
+            else if (typeName === 'Защита') actualValue = baseDefense * value / 100;
+            else if (typeName === 'Жизни') actualValue = baseHp * value / 100;
+            else actualValue = value;
+        } else {
+            actualValue = value;
+        }
+        
+        totalValue += actualValue;
+        
+        if (typeName === 'Защита') hasDefense = true;
+        if (typeName === 'Жизни') hasHealth = true;
+        if (typeName === 'Атака') hasAttack = true;
     }
     
-    // Режим атаки
     if (mode === 'attack') {
-        // 1. Атака
-        if (typeName === 'Атака') {
-            return 100000 + actualValue;
-        }
-        // 2. Защита
-        else if (typeName === 'Защита') {
-            return 50000 + actualValue;
-        }
-        // 3. Здоровье
-        else if (typeName === 'Жизни') {
-            return 10000 + actualValue;
-        }
-        // 4. Всё остальное
-        else {
-            return 1000 + actualValue;
-        }
-    }
-    // Режим защиты
+        // Приоритет в атаке: Атака > Защита > Здоровье
+        if (hasAttack) return 100000 + totalValue;
+        if (hasDefense) return 50000 + totalValue;
+        if (hasHealth) return 10000 + totalValue;
+        return 1000 + totalValue;
+    } 
     else if (mode === 'defense') {
-        // 1. Защита
-        if (typeName === 'Защита') {
-            return 100000 + actualValue;
-        }
-        // 2. Здоровье
-        else if (typeName === 'Жизни') {
-            return 50000 + actualValue;
-        }
-        // 3. Атака
-        else if (typeName === 'Атака') {
-            return 10000 + actualValue;
-        }
-        // 4. Всё остальное
-        else {
-            return 1000 + actualValue;
-        }
+        // Приоритет в защите: Защита+Здоровье > Защита > Здоровье > Защита+Атака > Атака
+        if (hasDefense && hasHealth) return 120000 + totalValue;
+        if (hasDefense && !hasHealth && !hasAttack) return 100000 + totalValue;
+        if (hasHealth && !hasDefense) return 50000 + totalValue;
+        if (hasDefense && hasAttack) return 40000 + totalValue;
+        if (hasAttack) return 10000 + totalValue;
+        return 1000 + totalValue;
     }
     
     return 0;
-}
-
-function calculateStatsWithSelections(hero, selections, mode) {
-    const heroClass = hero[HERO_FIELDS.clazz];
-    const baseAttack = toNum(hero[HERO_FIELDS.attack]) || 0;
-    const baseDefense = toNum(hero[HERO_FIELDS.defense]) || 0;
-    const baseHp = toNum(hero[HERO_FIELDS.hp]) || 0;
-    
-    // Если режим "none" — возвращаем базовые характеристики без учёта талантов
-    if (mode === 'none') {
-        return { 
-            attack: Math.floor(baseAttack), 
-            defense: Math.floor(baseDefense), 
-            hp: Math.floor(baseHp) 
-        };
-    }
-    
-    if (!classTalents[heroClass]) {
-        return { attack: Math.floor(baseAttack), defense: Math.floor(baseDefense), hp: Math.floor(baseHp) };
-    }
-    
-    const talents = classTalents[heroClass];
-    let attackFlat = 0, attackPercent = 0, defenseFlat = 0, defensePercent = 0, hpFlat = 0, hpPercent = 0;
-    
-    const groups = [];
-    let currentGroup = [];
-    for (const talent of talents) {
-        if (currentGroup.length === 0 || currentGroup[0].branchGroup === talent.branchGroup) {
-            currentGroup.push(talent);
-        } else {
-            groups.push([...currentGroup]);
-            currentGroup = [talent];
-        }
-    }
-    if (currentGroup.length > 0) groups.push(currentGroup);
-    
-    for (const group of groups) {
-        const groupId = group[0].branchGroup;
-        
-        // Обязательные таланты применяются всегда в режимах не "none"
-        for (const talent of group) {
-            if (talent.isMandatory && talent.centerTalentId) {
-                const effects = getTalentEffects(talent.centerTalentId);
-                attackPercent += effects.attackPercent;
-                attackFlat += effects.attackFlat;
-                defensePercent += effects.defensePercent;
-                defenseFlat += effects.defenseFlat;
-                hpPercent += effects.hpPercent;
-                hpFlat += effects.hpFlat;
-            }
-        }
-        
-        const selectedSide = selections[groupId];
-        if (selectedSide) {
-            for (const talent of group) {
-                if (!talent.isMandatory) {
-                    let talentId = null;
-                    if (selectedSide === 'left' && talent.leftTalentId) talentId = talent.leftTalentId;
-                    if (selectedSide === 'right' && talent.rightTalentId) talentId = talent.rightTalentId;
-                    if (talentId) {
-                        const effects = getTalentEffects(talentId);
-                        attackPercent += effects.attackPercent;
-                        attackFlat += effects.attackFlat;
-                        defensePercent += effects.defensePercent;
-                        defenseFlat += effects.defenseFlat;
-                        hpPercent += effects.hpPercent;
-                        hpFlat += effects.hpFlat;
-                    }
-                }
-            }
-        }
-    }
-    
-    const attackBonus = (baseAttack * attackPercent / 100) + attackFlat;
-    const defenseBonus = (baseDefense * defensePercent / 100) + defenseFlat;
-    const hpBonus = (baseHp * hpPercent / 100) + hpFlat;
-    
-    return {
-        attack: Math.floor(baseAttack + attackBonus),
-        defense: Math.floor(baseDefense + defenseBonus),
-        hp: Math.floor(baseHp + hpBonus)
-    };
 }
 
 function getOptimalSelections(hero, mode) {
@@ -1626,33 +1537,28 @@ function getOptimalSelections(hero, mode) {
     for (const group of groups) {
         const groupId = group[0].branchGroup;
         
-        let bestScore = -1;
-        let bestSide = null;
+        // Собираем таланты в левой и правой ветках
+        let leftBranchTalents = [];
+        let rightBranchTalents = [];
         
-        // Проверяем оба таланта в группе (левый и правый) и выбираем лучший
         for (const talent of group) {
             if (!talent.isMandatory) {
-                // Проверяем левый талант
                 if (talent.leftTalentId) {
-                    const score = getTalentPriorityScore(talent.leftTalentId, mode, baseAttack, baseDefense, baseHp);
-                    if (score > bestScore) {
-                        bestScore = score;
-                        bestSide = 'left';
-                    }
+                    leftBranchTalents.push(talent.leftTalentId);
                 }
-                // Проверяем правый талант
                 if (talent.rightTalentId) {
-                    const score = getTalentPriorityScore(talent.rightTalentId, mode, baseAttack, baseDefense, baseHp);
-                    if (score > bestScore) {
-                        bestScore = score;
-                        bestSide = 'right';
-                    }
+                    rightBranchTalents.push(talent.rightTalentId);
                 }
             }
         }
         
-        if (bestSide !== null) {
-            selections[groupId] = bestSide;
+        const leftScore = getBranchScore(leftBranchTalents, mode, baseAttack, baseDefense, baseHp);
+        const rightScore = getBranchScore(rightBranchTalents, mode, baseAttack, baseDefense, baseHp);
+        
+        if (leftScore > rightScore) {
+            selections[groupId] = 'left';
+        } else if (rightScore > leftScore) {
+            selections[groupId] = 'right';
         } else {
             selections[groupId] = 'left';
         }
