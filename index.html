@@ -1498,20 +1498,19 @@ function getTalentPriorityScore(talentId, mode, baseAttack, baseDefense, baseHp)
     }
     // Режим защиты
     else if (mode === 'defense') {
-        // 1. Защита + Здоровье (комбинированный талант) — таких нет в базе, но на всякий случай
-        // 2. Защита
+        // 1. Защита
         if (typeName === 'Защита') {
             return 100000 + actualValue;
         }
-        // 3. Здоровье
+        // 2. Здоровье
         else if (typeName === 'Жизни') {
             return 50000 + actualValue;
         }
-        // 4. Атака
+        // 3. Атака
         else if (typeName === 'Атака') {
             return 10000 + actualValue;
         }
-        // 5. Всё остальное
+        // 4. Всё остальное
         else {
             return 1000 + actualValue;
         }
