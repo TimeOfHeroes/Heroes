@@ -1479,18 +1479,21 @@ function getBranchScore(branchTalents, mode, baseAttack, baseDefense, baseHp) {
     }
     
     if (mode === 'attack') {
-        if (hasAttack) return 100000 + totalValue;
-        if (hasDefense) return 50000 + totalValue;
-        if (hasHealth) return 10000 + totalValue;
-        return 1000 + totalValue;
+        // Атака макс: Атака+Защита > Атака > Защита > Здоровье
+        if (hasAttack && hasDefense) return 100000 + totalValue;
+        if (hasAttack) return 80000 + totalValue;
+        if (hasDefense) return 60000 + totalValue;
+        if (hasHealth) return 40000 + totalValue;
+        return 20000 + totalValue;
     } 
     else if (mode === 'defense') {
-        if (hasDefense && hasHealth) return 120000 + totalValue;
-        if (hasDefense && !hasHealth && !hasAttack) return 100000 + totalValue;
-        if (hasHealth && !hasDefense) return 50000 + totalValue;
+        // Защита макс: Защита+Здоровье > Защита > Здоровье > Защита+Атака > Атака
+        if (hasDefense && hasHealth) return 100000 + totalValue;
+        if (hasDefense && !hasHealth && !hasAttack) return 80000 + totalValue;
+        if (hasHealth && !hasDefense) return 60000 + totalValue;
         if (hasDefense && hasAttack) return 40000 + totalValue;
-        if (hasAttack) return 10000 + totalValue;
-        return 1000 + totalValue;
+        if (hasAttack) return 20000 + totalValue;
+        return 10000 + totalValue;
     }
     
     return 0;
